@@ -41,8 +41,8 @@ class DockingGridKmpLibraryConventionPlugin : Plugin<Project> {
 
                 extensions.configure<KotlinMultiplatformAndroidLibraryExtension> {
                     namespace = "io.github.majorbolt.dockinggrid." + name.removePrefix("docking-grid-").replace('-', '.')
-                    compileSdk = catalog.intVersion("project-compile-sdk-version")
-                    minSdk = catalog.intVersion("project-min-sdk-version")
+                    compileSdk = catalog.intVersion("android-compile-sdk")
+                    minSdk = catalog.intVersion("android-min-sdk")
                 }
 
                 sourceSets.getByName("commonTest").dependencies {

@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-// Desktop sample of the Docking Grid library; not published. Run it with `gradlew -p docking-grid :sample:run`.
+// Desktop sample of the Docking Grid library; not published. Run it with `gradlew :sample:run`.
 kotlin {
     jvm()
 

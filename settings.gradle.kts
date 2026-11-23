@@ -27,13 +27,7 @@ dependencyResolutionManagement {
         }
         mavenCentral()
     }
-    versionCatalogs {
-        // Shared with the host project while the library lives in this repository. A standalone
-        // repository would ship its own copy of the catalog.
-        create("libs") {
-            from(files("../gradle/libs.versions.toml"))
-        }
-    }
+    // The version catalog gradle/libs.versions.toml is imported as `libs` by Gradle's convention.
 }
 
 include(":docking-grid-core")

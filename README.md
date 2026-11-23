@@ -28,7 +28,10 @@ The library is not on a public repository yet. Two options:
 includeBuild("path/to/docking-grid")
 ```
 
-**From Maven Local**, after `./gradlew -p docking-grid publishToMavenLocal`, with `mavenLocal()` in the repositories.
+The included build uses its own versions from `gradle/libs.versions.toml`. Keep Kotlin, the Android Gradle plugin
+and Compose Multiplatform there at the versions of the including build.
+
+**From Maven Local**, after `./gradlew publishToMavenLocal` in this repository, with `mavenLocal()` in the repositories.
 
 Either way, depend on the coordinates; with the composite build, Gradle substitutes the local modules:
 
@@ -39,7 +42,8 @@ commonMain.dependencies {
 }
 ```
 
-Building the library needs an Android SDK: set `ANDROID_HOME`, or put `sdk.dir=…` into `docking-grid/local.properties`.
+Building the library needs an Android SDK: set `ANDROID_HOME`, or put `sdk.dir=…` into `local.properties` in this
+repository's root. Run the tests with `./gradlew jvmTest`.
 
 ## Usage
 
@@ -163,7 +167,7 @@ built in; define other profiles in your application.
 
 ## Sample
 
-`./gradlew -p docking-grid :sample:run` opens a desktop window with five dummy dockables, a custom divider and highlight
+`./gradlew :sample:run` opens a desktop window with five dummy dockables, a custom divider and highlight
 color, a Window menu that opens and closes them, and a layout stored in `~/.docking-grid-sample/layout.json`.
 
 ## Platform notes
