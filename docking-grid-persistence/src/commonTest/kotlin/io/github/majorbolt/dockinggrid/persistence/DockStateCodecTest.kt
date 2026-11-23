@@ -59,10 +59,11 @@ class DockStateCodecTest {
     }
 
     @Test
-    fun theStoredKeysOfTheFormatAreUnchanged() {
+    fun theDocumentUsesTheKeysOfSchemaThree() {
         val document = codec.encode(customizedState())
 
-        listOf("\"schemaVersion\":2", "\"openToolWindowIds\"", "\"closedToolWindowIds\"", "\"toolWindowIds\"", "\"selectedToolWindowId\"")
+        assertFalse("ToolWindow" in document, "No key of schema 2 is written: $document")
+        listOf("\"schemaVersion\":3", "\"openDockableIds\"", "\"closedDockableIds\"", "\"dockableIds\"", "\"selectedDockableId\"")
             .forEach { storedKey -> assertTrue(storedKey in document, "Missing $storedKey in $document") }
     }
 
@@ -70,14 +71,14 @@ class DockStateCodecTest {
     fun aDocumentOfTheCurrentFormatIsReadCompletely() {
         val document = """
             {
-                "schemaVersion": 2,
-                "openToolWindowIds": ["editor", "explorer"],
-                "closedToolWindowIds": ["console"],
+                "schemaVersion": 3,
+                "openDockableIds": ["editor", "explorer"],
+                "closedDockableIds": ["console"],
                 "profiles": {
                     "LANDSCAPE": {
                         "layout": {
-                            "outerFrame": { "left": [ { "id": "lane-1", "extentFraction": 0.3, "groups": [ { "id": "group-2", "toolWindowIds": ["explorer"] } ] } ] },
-                            "centerGroup": { "id": "group-1", "toolWindowIds": ["editor"], "selectedToolWindowId": "editor" }
+                            "outerFrame": { "left": [ { "id": "lane-1", "extentFraction": 0.3, "groups": [ { "id": "group-2", "dockableIds": ["explorer"] } ] } ] },
+                            "centerGroup": { "id": "group-1", "dockableIds": ["editor"], "selectedDockableId": "editor" }
                         },
                         "placementMemory": {
                             "console": { "locationKind": "SIDE", "frameLevel": "OUTER", "side": "BOTTOM", "laneId": "lane-9", "laneExtentFraction": 0.2 }
@@ -105,11 +106,11 @@ class DockStateCodecTest {
     fun unknownIdentifiersAndOrientationsAreDroppedAndUnlistedDockablesCountAsOpen() {
         val document = """
             {
-                "schemaVersion": 2,
-                "openToolWindowIds": ["editor", "removed_dockable"],
-                "closedToolWindowIds": ["explorer"],
+                "schemaVersion": 3,
+                "openDockableIds": ["editor", "removed_dockable"],
+                "closedDockableIds": ["explorer"],
                 "profiles": {
-                    "LANDSCAPE": { "layout": { "centerGroup": { "id": "center", "toolWindowIds": ["editor", "removed_dockable"] } } },
+                    "LANDSCAPE": { "layout": { "centerGroup": { "id": "center", "dockableIds": ["editor", "removed_dockable"] } } },
                     "SOME_FUTURE_ORIENTATION": {}
                 }
             }
@@ -125,23 +126,25 @@ class DockStateCodecTest {
 
     @Test
     fun aNewerSchemaIsReadWithItsKnownFields() {
-        val document = """{ "schemaVersion": 3, "futureField": 42, "openToolWindowIds": ["editor"], "closedToolWindowIds": ["explorer", "console"] }"""
+        val document = """{ "schemaVersion": 4, "futureField": 42, "openDockableIds": ["editor"], "closedDockableIds": ["explorer", "console"] }"""
 
         val decoded = assertIs<DockStateDecodeResult.Decoded>(codec.decode(document))
 
         assertEquals(setOf(editor), decoded.state.openDockableIds)
-        assertEquals(3, decoded.storedSchemaVersion)
+        assertEquals(4, decoded.storedSchemaVersion)
         assertTrue(decoded.isNewerSchema)
     }
 
     @Test
     fun anOutdatedSchemaIsNotMigrated() {
-        assertEquals(DockStateDecodeResult.OutdatedSchema(1), codec.decode("""{ "schemaVersion": 1, "openToolWindowIds": ["editor"] }"""))
+        // Schema 2, the format with Tool Window names, is not migrated before the first public release.
+        val schemaTwoDocument = """{ "schemaVersion": 2, "openToolWindowIds": ["editor"], "closedToolWindowIds": ["explorer", "console"] }"""
+        assertEquals(DockStateDecodeResult.OutdatedSchema(2), codec.decode(schemaTwoDocument))
     }
 
     @Test
     fun invalidDocumentsAreReportedAsUnreadable() {
-        listOf("{ broken", "[]", """{ "openToolWindowIds": ["editor"] }""", """{ "schemaVersion": "two" }""").forEach { document ->
+        listOf("{ broken", "[]", """{ "openDockableIds": ["editor"] }""", """{ "schemaVersion": "two" }""").forEach { document ->
             assertIs<DockStateDecodeResult.Unreadable>(codec.decode(document), "Document: $document")
         }
     }

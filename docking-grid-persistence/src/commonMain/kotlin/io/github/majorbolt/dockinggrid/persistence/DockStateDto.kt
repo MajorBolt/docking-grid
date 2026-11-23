@@ -1,19 +1,16 @@
 package io.github.majorbolt.dockinggrid.persistence
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /** Current version of the stored format; see [DockStateCodec]. */
-internal const val DOCK_STATE_SCHEMA_VERSION = 2
+// 3: neutral keys (openDockableIds, closedDockableIds, dockableIds, selectedDockableId). 2 used Tool Window names.
+internal const val DOCK_STATE_SCHEMA_VERSION = 3
 
 @Serializable
 internal data class WindowDockStateDto(
     val schemaVersion: Int,
-    // The serial names are kept from the format's origin in an app with Tool Windows; renaming them would break it.
-    @SerialName("openToolWindowIds")
     val openDockableIds: List<String> = emptyList(),
     /** Stored explicitly so that dockables added in a later app version open at their default. */
-    @SerialName("closedToolWindowIds")
     val closedDockableIds: List<String> = emptyList(),
     val profiles: Map<String, DockProfileDto> = emptyMap(),
 )
@@ -49,9 +46,7 @@ internal data class DockLaneDto(
 @Serializable
 internal data class TabGroupDto(
     val id: String,
-    @SerialName("toolWindowIds")
     val dockableIds: List<String>,
-    @SerialName("selectedToolWindowId")
     val selectedDockableId: String? = null,
     val sizeFraction: Float = 1f,
 )
