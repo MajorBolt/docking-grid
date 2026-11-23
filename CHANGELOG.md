@@ -17,3 +17,4 @@ First version, extracted from the docking system of an existing Compose Multipla
 - `docking-grid-material3`: `MaterialDockingDefaults` and `MaterialDockHost`.
 - Targets: Android, JVM desktop, iosArm64, iosSimulatorArm64. Explicit API mode.
 - Published locally with `maven-publish` under `io.github.majorbolt`; Apache License 2.0.
+- Built with Android Gradle Plugin 9.5.2.
