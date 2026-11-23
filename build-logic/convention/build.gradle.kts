@@ -35,5 +35,9 @@ gradlePlugin {
             id = "io.github.majorbolt.dockinggrid.kmp.library"
             implementationClass = "DockingGridKmpLibraryConventionPlugin"
         }
+        register("dockingGridPublishing") {
+            id = "io.github.majorbolt.dockinggrid.publishing"
+            implementationClass = "DockingGridPublishingConventionPlugin"
+        }
     }
 }

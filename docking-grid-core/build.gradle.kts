@@ -1,6 +1,6 @@
 plugins {
     id("io.github.majorbolt.dockinggrid.kmp.library")
+    id("io.github.majorbolt.dockinggrid.publishing")
 }
 
-// The docking model, its operations, the layout geometry and drop-target resolution.
-// Pure Kotlin without dependencies, so it can be used and tested without any UI framework.
+description = "The docking model, its operations, the layout geometry and drop-target resolution. Pure Kotlin without dependencies, usable without any UI framework."

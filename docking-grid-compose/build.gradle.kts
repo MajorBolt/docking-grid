@@ -1,11 +1,11 @@
 plugins {
     id("io.github.majorbolt.dockinggrid.kmp.library")
+    id("io.github.majorbolt.dockinggrid.publishing")
     alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.compose.compiler)
 }
 
-// The dock host for Compose Multiplatform: rendering, pointer interaction, resize cursors and the style and slot
-// API. Depends on Compose foundation only, so it can be used with any design system.
+description = "The dock host for Compose Multiplatform: rendering, pointer interaction, resize cursors and a style and slot API. Depends on Compose foundation only."
 kotlin {
     sourceSets {
         commonMain.dependencies {

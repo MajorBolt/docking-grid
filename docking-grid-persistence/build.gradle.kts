@@ -1,10 +1,10 @@
 plugins {
     id("io.github.majorbolt.dockinggrid.kmp.library")
+    id("io.github.majorbolt.dockinggrid.publishing")
     alias(libs.plugins.jetbrains.kotlin.plugin.serialization)
 }
 
-// Converts the docking state to and from a versioned JSON document. Storage (files, DataStore, ...) is left to
-// the host application.
+description = "Converts the docking state to and from a versioned JSON document; storage is left to the host application."
 kotlin {
     sourceSets {
         commonMain.dependencies {

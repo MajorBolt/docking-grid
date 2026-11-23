@@ -1,11 +1,11 @@
 plugins {
     id("io.github.majorbolt.dockinggrid.kmp.library")
+    id("io.github.majorbolt.dockinggrid.publishing")
     alias(libs.plugins.jetbrains.compose)
     alias(libs.plugins.compose.compiler)
 }
 
-// Material 3 defaults for the dock host: a style taken from MaterialTheme and Material tab strip, header,
-// placeholder and drag label.
+description = "Material 3 defaults for the dock host: a style taken from MaterialTheme and Material tab strip, header, placeholder and drag label."
 kotlin {
     sourceSets {
         commonMain.dependencies {
