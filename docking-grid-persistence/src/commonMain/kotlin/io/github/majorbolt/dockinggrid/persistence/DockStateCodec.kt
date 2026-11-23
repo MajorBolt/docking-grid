@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
  * - Identifiers that are not in [catalog] are dropped while decoding. Dockables that the document lists neither as
  *   open nor as closed (for example ones added in a newer app version) count as open.
  * - A document with an older [SCHEMA_VERSION] is not migrated; it is reported as [DockStateDecodeResult.OutdatedSchema].
+ *   The version is read before the content, so this holds even when the old content no longer matches the format.
  *
  * A decoded state must still be repaired with [io.github.majorbolt.dockinggrid.reconciled] before use.
  */
@@ -27,13 +28,19 @@ public class DockStateCodec(private val catalog: DockableCatalog) {
         json.encodeToString(WindowDockStateDto.serializer(), state.toDto(catalog))
 
     public fun decode(document: String): DockStateDecodeResult {
+        // SerializationException is an IllegalArgumentException.
+        val storedSchemaVersion = try {
+            // The version is checked before the content: an older document may no longer match the current DTOs.
+            json.decodeFromString(DockStateVersionDto.serializer(), document).schemaVersion
+        } catch (exception: IllegalArgumentException) {
+            return DockStateDecodeResult.Unreadable(exception)
+        }
+        if (storedSchemaVersion < SCHEMA_VERSION) return DockStateDecodeResult.OutdatedSchema(storedSchemaVersion)
         val stateDto = try {
             json.decodeFromString(WindowDockStateDto.serializer(), document)
         } catch (exception: IllegalArgumentException) {
-            // SerializationException is an IllegalArgumentException.
             return DockStateDecodeResult.Unreadable(exception)
         }
-        if (stateDto.schemaVersion < SCHEMA_VERSION) return DockStateDecodeResult.OutdatedSchema(stateDto.schemaVersion)
         return DockStateDecodeResult.Decoded(stateDto.toDomain(catalog), stateDto.schemaVersion)
     }
 

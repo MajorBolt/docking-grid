@@ -142,6 +142,34 @@ class DockStateCodecTest {
         assertEquals(DockStateDecodeResult.OutdatedSchema(2), codec.decode(schemaTwoDocument))
     }
 
+    /**
+     * A complete document as schema 2 wrote it: its tab groups use `toolWindowIds`, which the current format does not
+     * accept. It must still be reported as outdated, not as unreadable, because the version is checked first.
+     */
+    @Test
+    fun aCompleteSchemaTwoDocumentIsOutdatedNotUnreadable() {
+        val schemaTwoDocument = """
+            {
+                "schemaVersion": 2,
+                "openToolWindowIds": ["editor", "explorer"],
+                "closedToolWindowIds": ["console"],
+                "profiles": {
+                    "LANDSCAPE": {
+                        "layout": {
+                            "outerFrame": { "left": [ { "id": "lane-1", "extentFraction": 0.25, "groups": [
+                                { "id": "group-2", "toolWindowIds": ["explorer"], "selectedToolWindowId": "explorer", "sizeFraction": 1.0 }
+                            ] } ] },
+                            "centerGroup": { "id": "group-1", "toolWindowIds": ["editor"], "selectedToolWindowId": "editor" }
+                        },
+                        "placementMemory": {}
+                    }
+                }
+            }
+        """.trimIndent()
+
+        assertEquals(DockStateDecodeResult.OutdatedSchema(2), codec.decode(schemaTwoDocument))
+    }
+
     @Test
     fun invalidDocumentsAreReportedAsUnreadable() {
         listOf("{ broken", "[]", """{ "openDockableIds": ["editor"] }""", """{ "schemaVersion": "two" }""").forEach { document ->
