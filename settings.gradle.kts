@@ -41,5 +41,6 @@ include(":docking-grid-persistence")
 include(":docking-grid-compose")
 include(":docking-grid-material3")
 
-// Not published: dockables shared by the tests of the UI modules.
+// Not published: dockables shared by the tests of the UI modules, and a desktop sample.
 include(":docking-grid-test-fixtures")
+include(":sample")
