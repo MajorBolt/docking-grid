@@ -6,8 +6,12 @@ android-compile-sdk = "37"
 android-min-sdk = "26"
 agp = "9.5.2"
 kotlin = "2.4.21"
-compose-multiplatform = "1.7.3"
-compose-ui-test = "1.11.0"
+compose-multiplatform = "1.11.1"
+# Material3 is released separately from Compose Multiplatform. Keep it at the host's version: the library calls
+# experimental Material3 APIs (TooltipBox, PlainTooltip) that are not binary compatible across releases.
+compose-multiplatform-material3 = "1.9.0"
+# Test-only. Must match the Compose UI version that resolves at runtime.
+compose-ui-test = "1.11.1"
 kotlinx-serialization-json = "1.12.0"
 
 [libraries]
@@ -18,7 +22,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 jetbrains-compose-runtime = { group = "org.jetbrains.compose.runtime", name = "runtime", version.ref = "compose-multiplatform" }
 jetbrains-compose-foundation = { group = "org.jetbrains.compose.foundation", name = "foundation", version.ref = "compose-multiplatform" }
 jetbrains-compose-ui = { group = "org.jetbrains.compose.ui", name = "ui", version.ref = "compose-multiplatform" }
-jetbrains-compose-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "compose-multiplatform" }
+jetbrains-compose-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "compose-multiplatform-material3" }
 jetbrains-compose-ui-test = { group = "org.jetbrains.compose.ui", name = "ui-test", version.ref = "compose-ui-test" }
 
 [plugins]
