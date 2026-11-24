@@ -303,7 +303,11 @@ public fun DockHost(
                             .placedAt(highlightRect)
                             .testTag(DockHostTestTags.HIGHLIGHT)
                             .background(style.colors.dropTargetFill, style.dropTargetShape)
-                            .border(style.dropTargetBorderWidth, style.colors.dropTargetBorder, style.dropTargetShape),
+                            .then(
+                                if(style.dropTargetBorderWidth.value > 0)
+                                Modifier.border(style.dropTargetBorderWidth, style.colors.dropTargetBorder, style.dropTargetShape)
+                                else Modifier
+                            )
                     )
                 }
 

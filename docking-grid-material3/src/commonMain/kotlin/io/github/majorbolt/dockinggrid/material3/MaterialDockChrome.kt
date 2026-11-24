@@ -124,7 +124,11 @@ public fun MaterialDockPlaceholder(text: String, modifier: Modifier = Modifier) 
         modifier = modifier
             .padding(style.groupSpacing)
             .clip(style.groupShape)
-            .border(style.groupBorderWidth, style.colors.groupBorder, style.groupShape)
+            .then(
+                if(style.groupBorderWidth.value > 0)
+                    Modifier.border(style.groupBorderWidth, style.colors.groupBorder, style.groupShape)
+                else Modifier
+            )
             .background(style.colors.placeholderBackground),
         contentAlignment = Alignment.Center,
     ) {

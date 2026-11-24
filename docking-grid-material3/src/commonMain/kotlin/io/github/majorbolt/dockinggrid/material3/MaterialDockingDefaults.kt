@@ -1,8 +1,14 @@
 package io.github.majorbolt.dockinggrid.material3
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.majorbolt.dockinggrid.compose.DockingColors
 import io.github.majorbolt.dockinggrid.compose.DockingStrings
 import io.github.majorbolt.dockinggrid.compose.DockingStyle
@@ -39,9 +45,22 @@ public object MaterialDockingDefaults {
     public fun style(
         colors: DockingColors = colors(),
         strings: DockingStrings = DockingStrings(),
+        groupShape: Shape = RoundedCornerShape(8.dp),
+        groupBorderWidth: Dp = 1.dp,
+        groupSpacing: Dp = 2.dp,
+        contentPadding: Dp = 8.dp,
+        dropTargetShape: Shape = RoundedCornerShape(8.dp),
+        dropTargetBorderWidth: Dp = 2.dp,
+        textStyle: TextStyle  = MaterialTheme.typography.bodyMedium,
     ): DockingStyle = DockingStyle(
         colors = colors,
         strings = strings,
-        textStyle = MaterialTheme.typography.bodyMedium,
+        groupShape = groupShape,
+        groupBorderWidth = groupBorderWidth,
+        groupSpacing = groupSpacing,
+        contentPadding = contentPadding,
+        dropTargetShape = dropTargetShape,
+        dropTargetBorderWidth = dropTargetBorderWidth,
+        textStyle = textStyle,
     )
 }
