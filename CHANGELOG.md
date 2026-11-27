@@ -7,6 +7,9 @@ All notable changes to Docking Grid are documented here. The project follows [Se
 - `docking-grid-compose`: `DockDragController` and `rememberDockDragController()` let code outside a `DockHost`
   (for example an application toolbar) drag a dockable over it, with the same preview, highlight, commit and
   cancellation as a header drag. `DockHost` and `MaterialDockHost` take an optional `dragController`.
+- `docking-grid-material3`: the options menu of a group has compact, inset entries with a rounded primary-colored
+  highlight (`MaterialDockMenuItem`), and
+  `MaterialDockHeader(menuItems = ...)` / `MaterialDockHost(dockableMenuItems = ...)` add own entries below "Close".
 - `docking-grid-core`: `WindowDockState.applyingDropOperation` commits a drop and opens a dockable that was closed
   at the drop target; the other orientations place it at its remembered or default position.
 

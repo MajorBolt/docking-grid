@@ -7,10 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +37,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.compose.DockGroupScope
 import io.github.majorbolt.dockinggrid.compose.LocalDockingStyle
 
@@ -61,10 +70,18 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
     }
 }
 
-/** Title bar of the selected dockable with an options menu that can close it. */
+/**
+ * Title bar of the selected dockable with an options menu that can close it.
+ *
+ * @param menuItems further entries of the options menu, shown below "Close", for the selected dockable. Use
+ *   [MaterialDockMenuItem] for them and call `dismissMenu` when an entry was chosen.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-public fun DockGroupScope.MaterialDockHeader(modifier: Modifier = Modifier) {
+public fun DockGroupScope.MaterialDockHeader(
+    modifier: Modifier = Modifier,
+    menuItems: @Composable (dockableId: DockableId, dismissMenu: () -> Unit) -> Unit = { _, _ -> },
+) {
     val strings = LocalDockingStyle.current.strings
     val selectedDockableId = group.selectedDockableId
     var isMenuExpanded by remember { mutableStateOf(false) }
@@ -104,15 +121,63 @@ public fun DockGroupScope.MaterialDockHeader(modifier: Modifier = Modifier) {
                 expanded = isMenuExpanded,
                 onDismissRequest = { isMenuExpanded = false },
             ) {
-                DropdownMenuItem(
-                    text = { Text(strings.close) },
+                MaterialDockMenuItem(
+                    text = strings.close,
                     onClick = {
                         isMenuExpanded = false
                         close(selectedDockableId)
                     },
                 )
+                menuItems(selectedDockableId) { isMenuExpanded = false }
             }
         }
+    }
+}
+
+/** Height of one entry of a dock menu: more compact than the Material default, like desktop menus. */
+private val DOCK_MENU_ITEM_HEIGHT: Dp = 28.dp
+
+/** Space between the menu's edge and an entry, so the rounded highlight stands free. */
+private val DOCK_MENU_ITEM_INSET: Dp = 4.dp
+private val DOCK_MENU_ITEM_SHAPE = RoundedCornerShape(4.dp)
+private const val DOCK_MENU_HIGHLIGHT_ALPHA = 0.2f
+private const val DOCK_MENU_DISABLED_ALPHA = 0.38f
+
+/**
+ * One compact entry of a dock options menu (see [MaterialDockHeader]): inset from the menu's edge, with a rounded
+ * highlight in the theme's primary color while hovered or focused.
+ */
+@Composable
+public fun MaterialDockMenuItem(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val colorScheme = MaterialTheme.colorScheme
+    val isHighlighted = enabled && (isHovered || isFocused)
+    Box(
+        modifier = modifier
+            .padding(horizontal = DOCK_MENU_ITEM_INSET)
+            .widthIn(min = 112.dp)
+            .fillMaxWidth()
+            .height(DOCK_MENU_ITEM_HEIGHT)
+            .clip(DOCK_MENU_ITEM_SHAPE)
+            .background(if (isHighlighted) colorScheme.primary.copy(alpha = DOCK_MENU_HIGHLIGHT_ALPHA) else Color.Transparent)
+            .hoverable(interactionSource, enabled = enabled)
+            .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (enabled) colorScheme.onSurface else colorScheme.onSurface.copy(alpha = DOCK_MENU_DISABLED_ALPHA),
+            maxLines = 1,
+        )
     }
 }
 

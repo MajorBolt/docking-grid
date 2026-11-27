@@ -18,6 +18,8 @@ import io.github.majorbolt.dockinggrid.geometry.DockingMetrics
 /**
  * A [DockHost] with Material 3 chrome and a style taken from the current Material theme. Use [DockHost] directly
  * to combine the Material pieces ([MaterialDockTabStrip], [MaterialDockHeader], ...) with own slots.
+ *
+ * @param dockableMenuItems further entries of a group's options menu, below "Close"; see [MaterialDockHeader].
  */
 @Composable
 public fun MaterialDockHost(
@@ -32,6 +34,7 @@ public fun MaterialDockHost(
     metrics: DockingMetrics = DockingMetrics(),
     divider: @Composable (DockDividerState) -> Unit = { state -> BasicDockDivider(state) },
     dragController: DockDragController? = null,
+    dockableMenuItems: @Composable (dockableId: DockableId, dismissMenu: () -> Unit) -> Unit = { _, _ -> },
     content: @Composable (DockableId) -> Unit,
 ) {
     DockHost(
@@ -45,7 +48,7 @@ public fun MaterialDockHost(
         style = style,
         metrics = metrics,
         tabStrip = { MaterialDockTabStrip() },
-        header = { MaterialDockHeader() },
+        header = { MaterialDockHeader(menuItems = dockableMenuItems) },
         divider = divider,
         placeholder = { text -> MaterialDockPlaceholder(text) },
         dragLabel = { title -> MaterialDockDragLabel(title) },
