@@ -136,6 +136,8 @@ internal data class HeaderPresentation(
     val isAutoHideForcedByGrid: Boolean,
     /** An auto-hidden header is shown regardless of the pointer, for example while a dockable is dragged. */
     val isForcedVisible: Boolean,
+    /** Depth of the zone along an auto-hidden header's edge that shows it while hovered. */
+    val hoverZone: Dp = AUTO_HIDE_HOVER_ZONE,
 )
 
 /**
@@ -275,6 +277,7 @@ internal fun DockGroupContainer(
                 AutoHidingHeader(
                     side = side,
                     isForcedVisible = headerPresentation.isForcedVisible,
+                    hoverZone = headerPresentation.hoverZone,
                     modifier = Modifier
                         .align(
                             when (side) {
@@ -365,7 +368,7 @@ internal fun AutoHidingHeader(
 }
 
 /** How close to an auto-hidden header's edge the pointer must come to show it. */
-internal val AUTO_HIDE_HOVER_ZONE: Dp = 12.dp
+internal val AUTO_HIDE_HOVER_ZONE: Dp = 28.dp
 internal const val AUTO_HIDE_ANIMATION_MILLIS = 150
 
 private class GroupScope(

@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.majorbolt.dockinggrid.DockLayoutOperation
 import io.github.majorbolt.dockinggrid.DockProfile
@@ -364,6 +365,7 @@ public fun DockHost(
                                     isAutoHideForcedByGrid = displayedLayout.isHeaderAutoHideForcedByGrid(group.id, metrics.centerHeaderHidesPanelHeaders),
                                     // Headers are drop targets for tabs, so a drag shows them all.
                                     isForcedVisible = interaction is DockInteraction.DraggingDockable,
+                                    hoverZone = metrics.headerHoverZoneDp.dp,
                                 ),
                                 onHeaderStyleChange = { headerStyle -> onApplyOperation(DockLayoutOperation.SetGroupHeaderStyle(group.id, headerStyle)) },
                                 dockableIcon = dockableIcon,
@@ -428,6 +430,7 @@ public fun DockHost(
                         RevealingCenterHeader(
                             rect = centerHeaderRect,
                             revealFraction = centerHeaderRevealFraction,
+                            hoverZone = metrics.centerHeaderHoverZoneDp.dp,
                             onRevealRequestChange = { isRequested -> isCenterHeaderRevealRequested = isRequested },
                         ) {
                             centerScope.centerHeader()
@@ -509,6 +512,7 @@ public fun DockHost(
 private fun RevealingCenterHeader(
     rect: DockRect,
     revealFraction: Float,
+    hoverZone: Dp,
     onRevealRequestChange: (Boolean) -> Unit,
     header: @Composable () -> Unit,
 ) {
@@ -524,7 +528,7 @@ private fun RevealingCenterHeader(
         modifier = Modifier
             .absoluteOffset(x = rect.left.dp, y = rect.top.dp)
             .width(rect.width.dp)
-            .height(maxOf(CENTER_HEADER_HOVER_ZONE.value, shownHeight).dp)
+            .height(maxOf(hoverZone.value, shownHeight).dp)
             .hoverable(interactionSource)
             .clipToBounds()
             .testTag(DockHostTestTags.CENTER_HEADER),
@@ -568,8 +572,6 @@ private class PointerTracking {
 
 private const val DRAG_LABEL_OFFSET_DP = 12f
 
-/** The top edge of the center grid that shows its auto-hidden header; below it the panels' headers take over. */
-private val CENTER_HEADER_HOVER_ZONE = 6.dp
 
 /** Merges a measured header into the metrics; tab widths of all dockables seen so far are kept. */
 private fun GroupHeaderMetrics.updatedWith(measurement: HeaderMeasurement): GroupHeaderMetrics = copy(

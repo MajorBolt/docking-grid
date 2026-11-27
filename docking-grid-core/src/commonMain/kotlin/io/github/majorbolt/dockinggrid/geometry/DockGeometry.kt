@@ -68,6 +68,13 @@ public data class DockingMetrics(
      * priority); otherwise each panel follows its own [io.github.majorbolt.dockinggrid.GroupHeaderStyle.autoHides].
      */
     val centerHeaderHidesPanelHeaders: Boolean = true,
+    /** Depth of the zone along an auto-hidden group header's edge that shows the header while hovered. */
+    val headerHoverZoneDp: Float = 28f,
+    /**
+     * Depth of the zone along the top of the center grid that reveals its auto-hidden header. Keep it smaller than
+     * [headerHoverZoneDp], so the panels' own hidden headers below it stay reachable.
+     */
+    val centerHeaderHoverZoneDp: Float = 10f,
 )
 
 /** What dragging a divider changes. */

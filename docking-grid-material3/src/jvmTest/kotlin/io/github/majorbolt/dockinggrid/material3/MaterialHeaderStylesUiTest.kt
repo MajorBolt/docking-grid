@@ -127,7 +127,7 @@ class MaterialHeaderStylesUiTest {
         val headerTag = DockHostTestTags.autoHidingHeader(state.groupIdOf(Scenes))
         fun headerHeight() = onNodeWithTag(headerTag).getUnclippedBoundsInRoot().let { bounds -> bounds.bottom - bounds.top }
 
-        assertEquals(12.dp, headerHeight(), "Hidden: only the hover zone")
+        assertEquals(28.dp, headerHeight(), "Hidden: only the hover zone")
 
         onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(200f, 6f)) }
         waitForIdle()
@@ -135,7 +135,7 @@ class MaterialHeaderStylesUiTest {
 
         onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(200f, 300f)) }
         waitForIdle()
-        assertEquals(12.dp, headerHeight(), "Hidden again")
+        assertEquals(28.dp, headerHeight(), "Hidden again")
     }
 
     @Test
@@ -190,9 +190,9 @@ class MaterialHeaderStylesUiTest {
         onNodeWithTag(MaterialDockTestTags.VERTICAL_HEADER).performClick()
         waitForIdle()
         assertEquals(DockLayoutOperation.SetGroupHeaderStyle(groupId, GroupHeaderStyle(isVertical = true, autoHides = true)), recorder.appliedOperations.last())
-        // Now a vertical strip: hidden again once the menu is closed, only its 12 dp wide hover zone remains.
+        // Now a vertical strip: hidden again once the menu is closed, only its 28 dp wide hover zone remains.
         val strip = onNodeWithTag(headerTag).getUnclippedBoundsInRoot()
-        assertEquals(12.dp, strip.right - strip.left, "Hidden again once the menu is closed and the pointer is away")
+        assertEquals(28.dp, strip.right - strip.left, "Hidden again once the menu is closed and the pointer is away")
     }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
@@ -144,7 +145,11 @@ public fun DockGroupScope.MaterialDockOptionsButton(
             tooltip = { PlainTooltip { Text(strings.options) } },
             state = rememberTooltipState(),
         ) {
-            IconButton(onClick = { isMenuExpanded = true }, modifier = Modifier.testTag(MaterialDockTestTags.options(group.id))) {
+            // 28 dp instead of Material's 48 dp touch target, so its backing over the content stays small.
+            IconButton(
+                onClick = { isMenuExpanded = true },
+                modifier = Modifier.size(28.dp).testTag(MaterialDockTestTags.options(group.id)),
+            ) {
                 Text(text = "⋮", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
