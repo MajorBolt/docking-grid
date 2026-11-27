@@ -9,6 +9,7 @@ import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.DockingCapabilities
 import io.github.majorbolt.dockinggrid.LayoutOrientation
 import io.github.majorbolt.dockinggrid.compose.BasicDockDivider
+import io.github.majorbolt.dockinggrid.compose.DockDragController
 import io.github.majorbolt.dockinggrid.compose.DockDividerState
 import io.github.majorbolt.dockinggrid.compose.DockHost
 import io.github.majorbolt.dockinggrid.compose.DockingStyle
@@ -30,6 +31,7 @@ public fun MaterialDockHost(
     style: DockingStyle = MaterialDockingDefaults.style(),
     metrics: DockingMetrics = DockingMetrics(),
     divider: @Composable (DockDividerState) -> Unit = { state -> BasicDockDivider(state) },
+    dragController: DockDragController? = null,
     content: @Composable (DockableId) -> Unit,
 ) {
     DockHost(
@@ -47,6 +49,7 @@ public fun MaterialDockHost(
         divider = divider,
         placeholder = { text -> MaterialDockPlaceholder(text) },
         dragLabel = { title -> MaterialDockDragLabel(title) },
+        dragController = dragController,
         content = content,
     )
 }

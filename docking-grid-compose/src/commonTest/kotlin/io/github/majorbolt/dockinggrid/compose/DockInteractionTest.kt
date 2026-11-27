@@ -188,4 +188,28 @@ class DockInteractionTest {
         assertEquals(listOf(StreamInfo, Scenes), dragging.preview?.layout?.findGroup(scenesGroupId)?.dockableIds)
         assertEquals(DockLayoutOperation.MoveToGroup(Scenes, scenesGroupId, 1), dragging.finished().first)
     }
+
+    @Test
+    fun aClosedDockableLiftsNothingAndADropInsertsIt() {
+        val environment = environmentFor(profileWithoutRight)
+
+        val dragging = startDockableDrag(Players, 800f, 450f, environment, isExternal = true)
+        assertEquals(profileWithoutRight.layout, dragging.dragBase.layout, "Nothing is lifted out of the layout")
+        assertNull(dragging.dragBase.sourceGroupId)
+
+        val overRightEdge = dragging.movedTo(1590f, 450f, environment)
+
+        assertEquals(DockRect(1200f, 0f, 400f, 900f), overRightEdge.highlightRect)
+        assertEquals(DockLayoutOperation.MoveToNewLane(Players, DockFrameLevel.OUTER, DockSide.RIGHT, 0), overRightEdge.finished().first)
+    }
+
+    @Test
+    fun anExternalDragOutsideTheContentHasNoTargetAndDropsNothing() {
+        val environment = environmentFor(profileWithoutRight)
+
+        val outside = startDockableDrag(Players, 800f, 450f, environment, isExternal = true).movedTo(-20f, 450f, environment)
+
+        assertNull(outside.preview)
+        assertEquals(null to DockInteraction.Idle, outside.finished())
+    }
 }

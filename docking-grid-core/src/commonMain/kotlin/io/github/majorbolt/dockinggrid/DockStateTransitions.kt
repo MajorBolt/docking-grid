@@ -73,6 +73,41 @@ public fun WindowDockState.applyingOperation(
     }
 }
 
+/**
+ * Commits a drop from the dock host. Like [applyingOperation], but a moved dockable that is closed (one dragged
+ * in from outside the host, for example from a toolbar) is opened: [operation] places it in the profile of
+ * [orientation], and the other profiles place it at its remembered or default position, as [openingDockable] does.
+ * Rejected when the operation is rejected, or for a [DockLayoutOperation.SelectTab] or an identifier that is not
+ * in [catalog].
+ */
+public fun WindowDockState.applyingDropOperation(
+    operation: DockLayoutOperation,
+    orientation: LayoutOrientation,
+    catalog: DockableCatalog,
+    capabilities: DockingCapabilities,
+): DockStateTransitionResult {
+    val movedDockableId = operation.movedDockableId
+    if (movedDockableId == null || movedDockableId in openDockableIds) return applyingOperation(operation, orientation, capabilities)
+    val dockable = catalog.find(movedDockableId)
+    if (dockable == null || operation is DockLayoutOperation.SelectTab) {
+        return DockStateTransitionResult.Rejected(DockRejectionReason.UNKNOWN_DOCKABLE)
+    }
+    val currentProfile = profile(orientation)
+    return when (val result = currentProfile.applyOperation(operation, orientation, capabilities)) {
+        is DockOperationResult.Applied -> {
+            val updatedProfiles = LayoutOrientation.entries.associateWith { profileOrientation ->
+                if (profileOrientation == orientation) {
+                    DockProfile(layout = result.layout, placementMemory = currentProfile.placementMemory - movedDockableId)
+                } else {
+                    profile(profileOrientation).placing(dockable, profileOrientation, capabilities)
+                }
+            }
+            DockStateTransitionResult.Applied(WindowDockState(openDockableIds = openDockableIds + movedDockableId, profiles = updatedProfiles))
+        }
+        is DockOperationResult.Rejected -> DockStateTransitionResult.Rejected(result.reason)
+    }
+}
+
 public sealed interface DockStateTransitionResult {
     public data class Applied(val state: WindowDockState) : DockStateTransitionResult
     public data class Rejected(val reason: DockRejectionReason) : DockStateTransitionResult

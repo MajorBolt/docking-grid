@@ -218,4 +218,49 @@ class DockStateTransitionsTest {
 
     private fun groupIdOf(state: WindowDockState, dockableId: DockableId): String =
         state.layout().allGroups.first { group -> dockableId in group.dockableIds }.id
+
+    @Test
+    fun aDropOfAClosedDockableOpensItAtTheTargetInTheCurrentOrientationOnly() {
+        val stateWithoutPlayers = defaultWindowDockState(TestDockables.catalog, desktop).closingDockable(Players)
+        val operation = DockLayoutOperation.MoveToNewLane(Players, DockFrameLevel.OUTER, DockSide.BOTTOM, 0)
+
+        val result = stateWithoutPlayers.applyingDropOperation(operation, landscape, TestDockables.catalog, desktop)
+
+        val state = assertIs<DockStateTransitionResult.Applied>(result).state
+        assertTrue(Players in state.openDockableIds)
+        assertEquals(listOf(Players), state.layout(landscape).outerFrame.lanes(DockSide.BOTTOM).single().groups.single().dockableIds)
+        assertFalse(Players in state.profile(landscape).placementMemory)
+        // The other orientation reopens it where it was before (the RIGHT dock), not at the drop target.
+        assertTrue(state.layout(portrait).outerFrame.lanes(DockSide.BOTTOM).isEmpty())
+        assertEquals(Players, state.layout(portrait).outerFrame.lanes(DockSide.RIGHT).single().groups.first().dockableIds.single())
+        assertFalse(Players in state.profile(portrait).placementMemory)
+    }
+
+    @Test
+    fun aDropOfAnOpenDockableIsAnOrdinaryMove() {
+        val state = defaultWindowDockState(TestDockables.catalog, desktop)
+        val operation = DockLayoutOperation.MoveToNewLane(Scenes, DockFrameLevel.OUTER, DockSide.BOTTOM, 0)
+
+        assertEquals(
+            state.applyingOperation(operation, landscape, desktop),
+            state.applyingDropOperation(operation, landscape, TestDockables.catalog, desktop),
+        )
+    }
+
+    @Test
+    fun aDropIsRejectedForUnknownDockablesTabSelectionAndRejectedTargets() {
+        val stateWithoutPlayers = defaultWindowDockState(TestDockables.catalog, desktop).closingDockable(Players)
+
+        val unknown = stateWithoutPlayers.applyingDropOperation(
+            DockLayoutOperation.MoveToCenter(DockableId("unknown")), landscape, TestDockables.catalog, desktop,
+        )
+        val selectTab = stateWithoutPlayers.applyingDropOperation(DockLayoutOperation.SelectTab(Players), landscape, TestDockables.catalog, desktop)
+        val unknownGroup = stateWithoutPlayers.applyingDropOperation(
+            DockLayoutOperation.MoveToGroup(Players, "missing", 0), landscape, TestDockables.catalog, desktop,
+        )
+
+        assertEquals(DockStateTransitionResult.Rejected(DockRejectionReason.UNKNOWN_DOCKABLE), unknown)
+        assertEquals(DockStateTransitionResult.Rejected(DockRejectionReason.UNKNOWN_DOCKABLE), selectTab)
+        assertIs<DockStateTransitionResult.Rejected>(unknownGroup)
+    }
 }

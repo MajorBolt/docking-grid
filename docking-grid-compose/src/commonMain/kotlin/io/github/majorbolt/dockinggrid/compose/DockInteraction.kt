@@ -54,6 +54,8 @@ internal sealed interface DockInteraction {
         val pointerVerticalPosition: Float,
         /** `null` while the pointer is over no valid target. */
         val preview: DropPreview?,
+        /** `true` for a drag driven from outside the host through a [DockDragController]. */
+        val isExternal: Boolean = false,
     ) : DockInteraction
 
     data class ResizingDivider(
@@ -96,11 +98,16 @@ internal val DockInteraction.liftedDockableId: DockableId?
 internal val DockInteraction.highlightRect: DockRect?
     get() = (this as? DockInteraction.DraggingDockable)?.preview?.highlightRect
 
+/**
+ * Starts a drag of [dockableId]. A dockable that is not in the committed layout (a closed one, dragged in from
+ * outside the host) lifts nothing: it has no own slot, so [DropTarget.Origin] never applies, and a drop inserts it.
+ */
 internal fun startDockableDrag(
     dockableId: DockableId,
     horizontalPosition: Float,
     verticalPosition: Float,
     environment: DockInteractionEnvironment,
+    isExternal: Boolean = false,
 ): DockInteraction.DraggingDockable = DockInteraction.DraggingDockable(
     dockableId = dockableId,
     baseProfile = environment.committedProfile,
@@ -114,6 +121,7 @@ internal fun startDockableDrag(
     pointerHorizontalPosition = horizontalPosition,
     pointerVerticalPosition = verticalPosition,
     preview = null,
+    isExternal = isExternal,
 ).movedTo(horizontalPosition, verticalPosition, environment)
 
 internal fun DockInteraction.DraggingDockable.movedTo(

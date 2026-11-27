@@ -98,6 +98,34 @@ val isOpen = dockableId in dockState.openDockableIds
 
 A reopened dockable returns to where it was closed, if that place still exists; otherwise to its default location.
 
+### Drag from your own UI
+
+To let users drag a dockable from outside the host, for example from a toolbar icon, pass a `DockDragController` to
+the host and drive it from your own pointer gesture. Positions are window coordinates in pixels. The host shows the
+same live preview and highlight as for a header drag, and a drop emits one operation. The dockable may be closed;
+commit drops with `applyingDropOperation`, which also opens a closed dockable at the drop target:
+
+```kotlin
+val dragController = rememberDockDragController()
+
+MaterialDockHost(
+    // ...
+    onApplyOperation = { operation ->
+        val result = dockState.applyingDropOperation(operation, orientation, catalog, DockingCapabilities.Desktop)
+        if (result is DockStateTransitionResult.Applied) dockState = result.state
+    },
+    dragController = dragController,
+) { dockableId -> /* ... */ }
+
+// In your gesture, with positions from LayoutCoordinates.localToWindow:
+dragController.startDrag(dockableId, windowPosition)
+dragController.updateDrag(windowPosition)
+val dropped: Boolean = dragController.drop()   // or dragController.cancelDrag()
+```
+
+Escape, loss of window focus and a change of the committed profile end the drag in the host;
+`dragController.isDragging` then turns `false`. `isOverDropTarget` tells whether a drop would change the layout.
+
 ### 4. Store the layout
 
 ```kotlin

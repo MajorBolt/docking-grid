@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -35,6 +36,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
@@ -80,6 +83,7 @@ public object DockHostTestTags {
  * @param divider draws a divider inside the area the host reserves for it.
  * @param placeholder the empty center and the slot of a dragged dockable, with the text to show.
  * @param dragLabel follows the pointer while a dockable is dragged, with its title.
+ * @param dragController lets code outside the host drag dockables over it; see [DockDragController].
  * @param content renders the content of one dockable. Its composition is kept while the dockable moves.
  */
 @Composable
@@ -98,6 +102,7 @@ public fun DockHost(
     divider: @Composable (DockDividerState) -> Unit = { state -> BasicDockDivider(state) },
     placeholder: @Composable (text: String) -> Unit = { text -> BasicDockPlaceholder(text) },
     dragLabel: @Composable (title: String) -> Unit = { title -> BasicDockDragLabel(title) },
+    dragController: DockDragController? = null,
     content: @Composable (DockableId) -> Unit,
 ) {
     CompositionLocalProvider(LocalDockingStyle provides style) {
@@ -139,6 +144,68 @@ public fun DockHost(
                 operation?.let(currentOnApplyOperation)
             }
 
+            val currentDensity by rememberUpdatedState(density)
+            val hostPlacement = remember { HostPlacement() }
+
+            /** The window position in content dp, or `null` while the host is not placed. */
+            fun contentPosition(windowPosition: Offset): Offset? {
+                val coordinates = hostPlacement.coordinates?.takeIf { layoutCoordinates -> layoutCoordinates.isAttached } ?: return null
+                val localPosition = coordinates.windowToLocal(windowPosition)
+                return Offset(localPosition.x / currentDensity, localPosition.y / currentDensity)
+            }
+
+            val externalDragHost = remember {
+                object : ExternalDockDragHost {
+                    private val externalDrag: DockInteraction.DraggingDockable?
+                        get() = (interaction as? DockInteraction.DraggingDockable)?.takeIf { dragging -> dragging.isExternal }
+
+                    override val isExternalDragActive: Boolean get() = externalDrag != null
+
+                    override val isExternalDragOverDropTarget: Boolean
+                        get() = externalDrag?.preview?.changesLayout == true
+
+                    override fun startExternalDrag(dockableId: DockableId, windowPosition: Offset): Boolean {
+                        if (interaction != DockInteraction.Idle || currentEnvironment.catalog.find(dockableId) == null) return false
+                        val position = contentPosition(windowPosition) ?: return false
+                        interaction = startDockableDrag(
+                            dockableId = dockableId,
+                            horizontalPosition = position.x,
+                            verticalPosition = position.y,
+                            environment = currentEnvironment,
+                            isExternal = true,
+                        )
+                        // The host takes the focus, so Escape cancels the drag as it does for header drags.
+                        focusRequester.requestFocus()
+                        return true
+                    }
+
+                    override fun updateExternalDrag(windowPosition: Offset) {
+                        val dragging = externalDrag ?: return
+                        val position = contentPosition(windowPosition) ?: return
+                        interaction = dragging.movedTo(position.x, position.y, currentEnvironment)
+                    }
+
+                    override fun dropExternalDrag(): Boolean {
+                        if (externalDrag == null) return false
+                        val (operation, nextInteraction) = interaction.finished()
+                        interaction = nextInteraction
+                        operation?.let(currentOnApplyOperation)
+                        return operation != null
+                    }
+
+                    override fun cancelExternalDrag() {
+                        if (externalDrag != null) interaction = interaction.cancelled()
+                    }
+                }
+            }
+            DisposableEffect(dragController, externalDragHost) {
+                dragController?.host = externalDragHost
+                onDispose {
+                    // A drag that is still running ends with the host; the controller then reports no drag.
+                    if (dragController?.host === externalDragHost) dragController.host = null
+                }
+            }
+
             val startDockableDragState = rememberUpdatedState { dockableId: DockableId, pointerId: PointerId ->
                 val pointerPosition = pointerTracking.lastPositions[pointerId]
                 if (pointerPosition != null && interaction !is DockInteraction.ResizingDivider) {
@@ -172,6 +239,7 @@ public fun DockHost(
                 modifier = Modifier
                     .fillMaxSize()
                     .testTag(DockHostTestTags.HOST)
+                    .onPlaced { coordinates -> hostPlacement.coordinates = coordinates }
                     .focusRequester(focusRequester)
                     .focusable()
                     .onPreviewKeyEvent { keyEvent ->
@@ -252,8 +320,9 @@ public fun DockHost(
                 }
 
                 // A lifted dockable is not rendered in a group; keep its content composed (invisible),
-                // so that its state survives the drag.
+                // so that its state survives the drag. A closed dockable dragged in from outside has no state yet.
                 (interaction as? DockInteraction.DraggingDockable)?.dockableId
+                    ?.takeIf { draggedDockableId -> profile.layout.contains(draggedDockableId) }
                     ?.takeIf { draggedDockableId ->
                         draggedDockableId == liftedDockableId || displayedLayout.findGroupOf(draggedDockableId)?.selectedDockableId != draggedDockableId
                     }
@@ -311,7 +380,11 @@ public fun DockHost(
                     )
                 }
 
-                (interaction as? DockInteraction.DraggingDockable)?.let { draggingInteraction ->
+                // An external drag shows the label only inside the host; outside it, the drag source draws its own feedback.
+                (interaction as? DockInteraction.DraggingDockable)?.takeIf { dragging ->
+                    !dragging.isExternal || DockRect(0f, 0f, contentSize.widthDp, contentSize.heightDp)
+                        .contains(dragging.pointerHorizontalPosition, dragging.pointerVerticalPosition)
+                }?.let { draggingInteraction ->
                     Box(
                         modifier = Modifier.absoluteOffset(
                             x = (draggingInteraction.pointerHorizontalPosition + DRAG_LABEL_OFFSET_DP).dp,
@@ -340,6 +413,11 @@ private fun Modifier.dockableDragHandle(
 
 private fun Modifier.placedAt(rect: DockRect): Modifier =
     absoluteOffset(x = rect.left.dp, y = rect.top.dp).size(width = rect.width.dp, height = rect.height.dp)
+
+/** Where the host is placed, for converting window positions of external drags; not observed by composition. */
+private class HostPlacement {
+    var coordinates: LayoutCoordinates? = null
+}
 
 /** Pointer bookkeeping that must not trigger recomposition. */
 private class PointerTracking {
