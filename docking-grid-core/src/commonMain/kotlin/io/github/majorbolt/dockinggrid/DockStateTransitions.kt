@@ -118,7 +118,8 @@ public sealed interface DockStateTransitionResult {
  * - identifiers that are not in [catalog] are removed everywhere, without placement memory;
  * - every profile exists and is normalized;
  * - dockables that are closed are not placed, and open dockables that are missing are placed;
- * - the inner frame is emptied where it is not allowed.
+ * - the inner frame is emptied where it is not allowed;
+ * - a center grid is merged into a single tab group where the grid is not allowed.
  */
 public fun WindowDockState.reconciled(catalog: DockableCatalog, capabilities: DockingCapabilities): WindowDockState {
     val knownOpenDockableIds = openDockableIds.filterTo(mutableSetOf()) { dockableId -> dockableId in catalog }
@@ -133,6 +134,14 @@ public fun WindowDockState.reconciled(catalog: DockableCatalog, capabilities: Do
         )
         if (!capabilities.isInnerFrameEnabled && reconciledProfile.layout.innerFrame.sides.isNotEmpty()) {
             reconciledProfile = reconciledProfile.copy(layout = reconciledProfile.layout.copy(innerFrame = DockFrame()))
+        }
+        if (!capabilities.isCenterGridEnabled && reconciledProfile.layout.center.panels.size > 1) {
+            val mergedLayout = reconciledProfile.layout.applyOperation(
+                DockLayoutOperation.ArrangeCenter(CenterPreset.SINGLE),
+                orientation,
+                capabilities,
+            )
+            if (mergedLayout is DockOperationResult.Applied) reconciledProfile = reconciledProfile.copy(layout = mergedLayout.layout)
         }
         reconciledProfile.layout.placedDockableIds
             .filter { dockableId -> dockableId !in knownOpenDockableIds }
@@ -153,7 +162,13 @@ private val DockLayoutOperation.movedDockableId: DockableId?
         is DockLayoutOperation.MoveToNewGroup -> dockableId
         is DockLayoutOperation.MoveToNewLane -> dockableId
         is DockLayoutOperation.MoveToCenter -> dockableId
-        is DockLayoutOperation.ResizeLane, is DockLayoutOperation.ResizeGroups -> null
+        is DockLayoutOperation.SplitCenterPanel -> dockableId
+        is DockLayoutOperation.MoveToCenterPanel -> dockableId
+        is DockLayoutOperation.ResizeLane,
+        is DockLayoutOperation.ResizeGroups,
+        is DockLayoutOperation.ArrangeCenter,
+        is DockLayoutOperation.ResizeCenterSplit,
+        -> null
     }
 
 /** Applies an operation to this profile, sizing new lanes from placement memory. */
@@ -261,7 +276,7 @@ private fun DockProfile.placementAt(
 
 /** Describes where [dockableId] currently is, or `null` when it is not placed. */
 internal fun DockLayout.capturePlacement(dockableId: DockableId): PlacementMemory? {
-    centerGroup?.let { group ->
+    center.groups.forEach { group ->
         val tabIndex = group.dockableIds.indexOf(dockableId)
         if (tabIndex >= 0) {
             return PlacementMemory(

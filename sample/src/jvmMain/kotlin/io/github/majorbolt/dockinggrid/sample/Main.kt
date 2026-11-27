@@ -31,6 +31,8 @@ import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import io.github.majorbolt.dockinggrid.CenterPreset
+import io.github.majorbolt.dockinggrid.DockLayoutOperation
 import io.github.majorbolt.dockinggrid.DockStateTransitionResult
 import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.DockingCapabilities
@@ -39,7 +41,10 @@ import io.github.majorbolt.dockinggrid.WindowDockState
 import io.github.majorbolt.dockinggrid.applyingOperation
 import io.github.majorbolt.dockinggrid.closingDockable
 import io.github.majorbolt.dockinggrid.compose.DockDividerState
+import io.github.majorbolt.dockinggrid.compose.titleOf
 import io.github.majorbolt.dockinggrid.defaultWindowDockState
+import io.github.majorbolt.dockinggrid.geometry.DockingMetrics
+import io.github.majorbolt.dockinggrid.matchingPreset
 import io.github.majorbolt.dockinggrid.material3.MaterialDockHost
 import io.github.majorbolt.dockinggrid.material3.MaterialDockingDefaults
 import io.github.majorbolt.dockinggrid.reconciled
@@ -60,6 +65,11 @@ fun main() {
         val windowState = rememberWindowState(size = DpSize(1400.dp, 900.dp))
         var dockState by remember { mutableStateOf(initialState) }
         var hasChanged by remember { mutableStateOf(false) }
+        var centerSplitsResizable by remember { mutableStateOf(true) }
+        var orientation by remember { mutableStateOf(LayoutOrientation.LANDSCAPE) }
+        val style = MaterialDockingDefaults.style(
+            colors = MaterialDockingDefaults.colors().copy(dropTargetFill = ACCENT.copy(alpha = 0.20f), dropTargetBorder = ACCENT),
+        )
         fun commit(updatedState: WindowDockState) {
             if (updatedState != dockState) {
                 dockState = updatedState
@@ -84,12 +94,31 @@ fun main() {
                     Separator()
                     Item("Reset layout", onClick = { commit(defaultWindowDockState(catalog, CAPABILITIES)) })
                 }
+                Menu("Center") {
+                    val currentPreset = dockState.profile(orientation).layout.center.matchingPreset
+                    CenterPreset.entries.forEach { preset ->
+                        CheckboxItem(
+                            text = style.strings.titleOf(preset),
+                            checked = preset == currentPreset,
+                            onCheckedChange = {
+                                val result = dockState.applyingOperation(DockLayoutOperation.ArrangeCenter(preset), orientation, CAPABILITIES)
+                                if (result is DockStateTransitionResult.Applied) commit(result.state)
+                            },
+                        )
+                    }
+                    Separator()
+                    CheckboxItem(
+                        text = "Resizable center splits",
+                        checked = centerSplitsResizable,
+                        onCheckedChange = { checked -> centerSplitsResizable = checked },
+                    )
+                }
             }
 
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                        val orientation = if (maxWidth >= maxHeight) LayoutOrientation.LANDSCAPE else LayoutOrientation.PORTRAIT
+                        orientation = if (maxWidth >= maxHeight) LayoutOrientation.LANDSCAPE else LayoutOrientation.PORTRAIT
                         MaterialDockHost(
                             profile = dockState.profile(orientation),
                             catalog = catalog,
@@ -100,12 +129,8 @@ fun main() {
                                 if (result is DockStateTransitionResult.Applied) commit(result.state)
                             },
                             onCloseDockable = { dockableId -> commit(dockState.closingDockable(dockableId)) },
-                            style = MaterialDockingDefaults.style(
-                                colors = MaterialDockingDefaults.colors().copy(
-                                    dropTargetFill = ACCENT.copy(alpha = 0.20f),
-                                    dropTargetBorder = ACCENT,
-                                ),
-                            ),
+                            style = style,
+                            metrics = DockingMetrics(centerSplitsResizable = centerSplitsResizable),
                             divider = { state -> ThinDivider(state) },
                             modifier = Modifier.fillMaxSize(),
                         ) { dockableId ->

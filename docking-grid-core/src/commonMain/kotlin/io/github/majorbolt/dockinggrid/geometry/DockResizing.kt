@@ -15,10 +15,10 @@ import kotlin.math.abs
  *
  * Lane extents are clamped so that the lane never goes below its minimum size and never grows into
  * space that would squeeze another lane's extent or violate any minimum size; the center absorbs the change.
- * Group boundaries are clamped to the minimum sizes of the two neighbouring groups.
+ * Group boundaries and center splits are clamped to the minimum sizes of their two neighbouring parts.
  *
  * @param dragDistanceDp positive values move the divider right or down.
- * @return the operation to apply, or `null` when the divider target no longer exists.
+ * @return the operation to apply, or `null` when the divider target no longer exists or is not resizable.
  */
 public fun resizeOperationFor(
     startLayout: DockLayout,
@@ -30,6 +30,45 @@ public fun resizeOperationFor(
 ): DockLayoutOperation? = when (val target = divider.target) {
     is DividerTarget.LaneExtent -> laneResizeOperation(startLayout, target, dragDistanceDp, contentSize, catalog, metrics)
     is DividerTarget.GroupBoundary -> groupBoundaryOperation(startLayout, target, dragDistanceDp, contentSize, catalog, metrics)
+    is DividerTarget.CenterSplit -> centerSplitOperation(startLayout, target, dragDistanceDp, contentSize, catalog, metrics)
+}
+
+private fun centerSplitOperation(
+    startLayout: DockLayout,
+    target: DividerTarget.CenterSplit,
+    dragDistanceDp: Float,
+    contentSize: DockSize,
+    catalog: DockableCatalog,
+    metrics: DockingMetrics,
+): DockLayoutOperation.ResizeCenterSplit? {
+    if (!metrics.centerSplitsResizable) return null
+    val (firstMinimum, secondMinimum) = startLayout.centerSplitMinimumLengths(target, catalog, metrics) ?: return null
+    val geometry = calculateDockGeometry(startLayout, contentSize, catalog, metrics)
+    val divider = geometry.dividers.firstOrNull { divider -> divider.target == target } ?: return null
+    val grid = startLayout.center
+    val sectionIndex = target.sectionIndex
+    // The parent is the whole center for the split between sections, otherwise the section: the union of its panels.
+    val parentRect = if (sectionIndex == null) {
+        geometry.centerRect
+    } else {
+        val panelRects = grid.sections[sectionIndex].panels.map { panel -> geometry.centerPanelRects[panel.id] ?: return null }
+        DockRect(
+            left = panelRects.minOf { rect -> rect.left },
+            top = panelRects.minOf { rect -> rect.top },
+            width = panelRects.maxOf { rect -> rect.right } - panelRects.minOf { rect -> rect.left },
+            height = panelRects.maxOf { rect -> rect.bottom } - panelRects.minOf { rect -> rect.top },
+        )
+    }
+    val alongWidth = divider.movesHorizontally
+    val availableLength = (if (alongWidth) parentRect.width else parentRect.height) - metrics.dividerThicknessDp
+    if (availableLength <= 0f) return null
+    val firstLength = if (alongWidth) divider.rect.left - parentRect.left else divider.rect.top - parentRect.top
+    val newFirstLength = if (firstMinimum + secondMinimum > availableLength) {
+        firstLength
+    } else {
+        (firstLength + dragDistanceDp).coerceIn(firstMinimum, availableLength - secondMinimum)
+    }
+    return DockLayoutOperation.ResizeCenterSplit(sectionIndex, newFirstLength / availableLength)
 }
 
 private fun laneResizeOperation(

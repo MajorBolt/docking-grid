@@ -48,6 +48,8 @@ import io.github.majorbolt.dockinggrid.DockableCatalog
 import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.DockingCapabilities
 import io.github.majorbolt.dockinggrid.LayoutOrientation
+import io.github.majorbolt.dockinggrid.geometry.DividerTarget
+import io.github.majorbolt.dockinggrid.matchingPreset
 import io.github.majorbolt.dockinggrid.geometry.DockRect
 import io.github.majorbolt.dockinggrid.geometry.DockSize
 import io.github.majorbolt.dockinggrid.geometry.DockingMetrics
@@ -63,6 +65,11 @@ public object DockHostTestTags {
     public const val LIFTED_SLOT: String = "dock_lifted_slot"
 
     public fun group(groupId: String): String = "dock_group_$groupId"
+
+    /** An empty center panel created by a center preset. */
+    public fun emptyCenterPanel(panelId: String): String = "dock_empty_center_panel_$panelId"
+
+    public fun divider(target: DividerTarget): String = "dock_divider_$target"
 }
 
 /**
@@ -81,7 +88,7 @@ public object DockHostTestTags {
  * @param tabStrip the tab strip of a group with more than one dockable. Each tab must use [DockGroupScope.dockTab].
  * @param header the header row of a group's selected dockable; the whole row is its drag handle.
  * @param divider draws a divider inside the area the host reserves for it.
- * @param placeholder the empty center and the slot of a dragged dockable, with the text to show.
+ * @param placeholder the empty center, an empty center panel and the slot of a dragged dockable, with the text to show.
  * @param dragLabel follows the pointer while a dockable is dragged, with its title.
  * @param dragController lets code outside the host drag dockables over it; see [DockDragController].
  * @param content renders the content of one dockable. Its composition is kept while the dockable moves.
@@ -308,6 +315,9 @@ public fun DockHost(
                                     val updatedMetrics = headerMetrics.updatedWith(measurement)
                                     if (updatedMetrics != headerMetrics) headerMetrics = updatedMetrics
                                 },
+                                centerPreset = profile.layout.center.matchingPreset
+                                    ?.takeIf { capabilities.isCenterGridEnabled && displayedLayout.center.findPanelOf(group.id) != null },
+                                onArrangeCenter = { preset -> onApplyOperation(DockLayoutOperation.ArrangeCenter(preset)) },
                                 tabStrip = tabStrip,
                                 header = header,
                                 content = { dockableId -> contentOf(dockableId)() },
@@ -332,9 +342,20 @@ public fun DockHost(
                         }
                     }
 
-                if (displayedLayout.centerGroup == null) {
+                if (displayedLayout.center.isEmpty) {
                     Box(modifier = Modifier.placedAt(displayedGeometry.centerRect).testTag(DockHostTestTags.EMPTY_CENTER), propagateMinConstraints = true) {
                         placeholder(style.strings.emptyCenter)
+                    }
+                }
+                displayedLayout.center.panels.filter { panel -> panel.group == null }.forEach { emptyPanel ->
+                    val panelRect = displayedGeometry.centerPanelRects[emptyPanel.id] ?: return@forEach
+                    key(emptyPanel.id) {
+                        Box(
+                            modifier = Modifier.placedAt(panelRect).testTag(DockHostTestTags.emptyCenterPanel(emptyPanel.id)),
+                            propagateMinConstraints = true,
+                        ) {
+                            placeholder(style.strings.emptyCenterPanel)
+                        }
                     }
                 }
 
@@ -342,6 +363,7 @@ public fun DockHost(
                     key(displayedDivider.target) {
                         DockDividerHandle(
                             movesHorizontally = displayedDivider.movesHorizontally,
+                            isResizable = displayedDivider.isResizable,
                             onResizeStart = {
                                 val committedDivider = committedGeometry.dividers.firstOrNull { divider -> divider.target == displayedDivider.target }
                                 if (committedDivider != null && interaction == DockInteraction.Idle) {
@@ -361,7 +383,7 @@ public fun DockHost(
                                 if (interaction is DockInteraction.ResizingDivider) interaction = DockInteraction.Idle
                             },
                             divider = divider,
-                            modifier = Modifier.placedAt(displayedDivider.rect),
+                            modifier = Modifier.placedAt(displayedDivider.rect).testTag(DockHostTestTags.divider(displayedDivider.target)),
                         )
                     }
                 }

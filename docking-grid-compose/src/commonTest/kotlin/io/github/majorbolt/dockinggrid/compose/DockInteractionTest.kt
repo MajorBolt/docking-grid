@@ -161,7 +161,7 @@ class DockInteractionTest {
     @Test
     fun hoveringATabStripTargetsTheExactInsertionIndex() {
         val profile = defaultWindowDockState(TestDockables.catalog, DockingCapabilities.Desktop).profile(LayoutOrientation.LANDSCAPE)
-        val centerGroupId = assertNotNull(profile.layout.centerGroup).id
+        val centerGroupId = assertNotNull(profile.layout.center.groups.singleOrNull()).id
         // The center group (408, 0, 784, 900) has a single header (y 0..36); its virtual tab is 412..502.
         val environment = environmentFor(profile)
 

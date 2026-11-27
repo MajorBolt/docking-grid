@@ -1,5 +1,9 @@
 package io.github.majorbolt.dockinggrid.persistence
 
+import io.github.majorbolt.dockinggrid.CenterAxis
+import io.github.majorbolt.dockinggrid.CenterGrid
+import io.github.majorbolt.dockinggrid.CenterPanel
+import io.github.majorbolt.dockinggrid.CenterSection
 import io.github.majorbolt.dockinggrid.DockFrame
 import io.github.majorbolt.dockinggrid.DockFrameLevel
 import io.github.majorbolt.dockinggrid.DockLane
@@ -33,7 +37,18 @@ private fun DockProfile.toDto(): DockProfileDto = DockProfileDto(
 private fun DockLayout.toDto(): DockLayoutDto = DockLayoutDto(
     outerFrame = outerFrame.toDto(),
     innerFrame = innerFrame.toDto(),
-    centerGroup = centerGroup?.toDto(),
+    center = center.toDto(),
+)
+
+private fun CenterGrid.toDto(): CenterGridDto = CenterGridDto(
+    axis = axis.name,
+    splitFraction = splitFraction,
+    sections = sections.map { section ->
+        CenterSectionDto(
+            splitFraction = section.splitFraction,
+            panels = section.panels.map { panel -> CenterPanelDto(id = panel.id, group = panel.group?.toDto()) },
+        )
+    },
 )
 
 private fun DockFrame.toDto(): DockFrameDto = DockFrameDto(
@@ -103,7 +118,20 @@ private fun DockProfileDto.toDomain(catalog: DockableCatalog): DockProfile = Doc
 private fun DockLayoutDto.toDomain(catalog: DockableCatalog): DockLayout = DockLayout(
     outerFrame = outerFrame.toDomain(catalog),
     innerFrame = innerFrame.toDomain(catalog),
-    centerGroup = centerGroup?.toDomain(catalog),
+    center = center.toDomain(catalog),
+)
+
+/** A panel whose group holds only unknown dockables is dropped; a panel stored without a group stays empty. */
+private fun CenterGridDto.toDomain(catalog: DockableCatalog): CenterGrid = CenterGrid(
+    axis = CenterAxis.entries.firstOrNull { entry -> entry.name == axis } ?: CenterAxis.HORIZONTAL,
+    splitFraction = splitFraction,
+    sections = sections.mapNotNull { sectionDto ->
+        val panels = sectionDto.panels.mapNotNull { panelDto ->
+            val groupDto = panelDto.group ?: return@mapNotNull CenterPanel(id = panelDto.id, group = null)
+            groupDto.toDomain(catalog)?.let { group -> CenterPanel(id = panelDto.id, group = group) }
+        }
+        if (panels.isEmpty()) null else CenterSection(panels = panels, splitFraction = sectionDto.splitFraction)
+    },
 )
 
 private fun DockFrameDto.toDomain(catalog: DockableCatalog): DockFrame = DockFrame()

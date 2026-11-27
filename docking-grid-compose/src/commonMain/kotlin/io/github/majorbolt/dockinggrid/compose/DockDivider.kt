@@ -44,11 +44,12 @@ public fun BasicDockDivider(state: DockDividerState, modifier: Modifier = Modifi
 /**
  * Draggable divider area that draws [divider] inside. Reports the total pointer distance in dp since the press, so
  * the caller can derive the new size from the size at gesture start without accumulating drift; the divider follows
- * the pointer exactly.
+ * the pointer exactly. A divider that is not [isResizable] is only drawn.
  */
 @Composable
 internal fun DockDividerHandle(
     movesHorizontally: Boolean,
+    isResizable: Boolean,
     onResizeStart: () -> Unit,
     onResize: (totalDragDistanceDp: Float) -> Unit,
     onResizeEnd: () -> Unit,
@@ -70,8 +71,9 @@ internal fun DockDividerHandle(
     Box(
         modifier = modifier
             .onGloballyPositioned { coordinates -> coordinatesHolder.coordinates = coordinates }
-            .pointerHoverIcon(resizePointerIcon)
-            .pointerInput(movesHorizontally, density) {
+            .then(if (isResizable) Modifier.pointerHoverIcon(resizePointerIcon) else Modifier)
+            .pointerInput(movesHorizontally, density, isResizable) {
+                if (!isResizable) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     val slopChange = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }

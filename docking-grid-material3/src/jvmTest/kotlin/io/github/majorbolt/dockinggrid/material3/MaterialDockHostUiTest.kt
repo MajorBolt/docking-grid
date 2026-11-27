@@ -111,7 +111,7 @@ class MaterialDockHostUiTest {
     @Test
     fun draggingToAnEmptyRightEdgeHighlightsOnlyThePredictedDockReflowsTheCenterAndCommitsOnRelease() = runDesktopComposeUiTest(width = 1600, height = 900) {
         val recorder = setDockHost(stateWithoutRight)
-        val centerGroupId = checkNotNull(stateWithoutRight.profile(landscape).layout.centerGroup).id
+        val centerGroupId = checkNotNull(stateWithoutRight.profile(landscape).layout.center.groups.singleOrNull()).id
         assertEquals(1192.dp, boundsOfTag(DockHostTestTags.group(centerGroupId)).let { bounds -> bounds.right - bounds.left })
 
         startDraggingScenesToTheRightEdge()
@@ -132,7 +132,7 @@ class MaterialDockHostUiTest {
     @Test
     fun escapeCancelsTheDragAndRestoresTheCommittedLayout() = runDesktopComposeUiTest(width = 1600, height = 900) {
         val recorder = setDockHost(stateWithoutRight)
-        val centerGroupId = checkNotNull(stateWithoutRight.profile(landscape).layout.centerGroup).id
+        val centerGroupId = checkNotNull(stateWithoutRight.profile(landscape).layout.center.groups.singleOrNull()).id
         startDraggingScenesToTheRightEdge()
 
         onNodeWithTag(DockHostTestTags.HOST).performKeyInput { pressKey(Key.Escape) }

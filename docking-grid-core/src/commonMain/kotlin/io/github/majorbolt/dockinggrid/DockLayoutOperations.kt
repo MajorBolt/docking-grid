@@ -41,10 +41,44 @@ public sealed interface DockLayoutOperation {
         val laneIndex: Int,
     ) : DockLayoutOperation
 
-    /** Adds [dockableId] to the inner center, creating the center group if it is empty. */
+    /**
+     * Adds [dockableId] to the inner center: into its first empty panel, otherwise as a tab of its first panel
+     * (reading order), creating the center panel if the center is empty. [tabIndex] applies to the tab case.
+     */
     public data class MoveToCenter(
         val dockableId: DockableId,
         val tabIndex: Int? = null,
+    ) : DockLayoutOperation
+
+    /**
+     * Splits the center panel [panelId] at [side]: the new panel with [dockableId] is placed on that side and takes
+     * half of the space. Rejected with [DockRejectionReason.CENTER_LIMIT_REACHED] when the split would exceed the
+     * 2×2 grid (see [CenterGrid.canSplitPanel]).
+     */
+    public data class SplitCenterPanel(
+        val dockableId: DockableId,
+        val panelId: String,
+        val side: DockSide,
+    ) : DockLayoutOperation
+
+    /** Adds [dockableId] to the center panel [panelId]: fills an empty panel, or appends a tab. */
+    public data class MoveToCenterPanel(
+        val dockableId: DockableId,
+        val panelId: String,
+    ) : DockLayoutOperation
+
+    /** Rearranges the center as [preset]; no dockable is opened or closed. */
+    public data class ArrangeCenter(
+        val preset: CenterPreset,
+    ) : DockLayoutOperation
+
+    /**
+     * Sets the share of the first part of a center split: between the two sections when [sectionIndex] is `null`,
+     * otherwise between the two panels of that section.
+     */
+    public data class ResizeCenterSplit(
+        val sectionIndex: Int?,
+        val splitFraction: Float,
     ) : DockLayoutOperation
 
     public data class ResizeLane(
@@ -66,6 +100,9 @@ public enum class DockRejectionReason {
     LANE_LIMIT_REACHED,
     GROUP_LIMIT_REACHED,
     INVALID_SIZE,
+
+    /** The center grid is disabled, or the split would exceed 2×2 panels. */
+    CENTER_LIMIT_REACHED,
 }
 
 public sealed interface DockOperationResult {
@@ -104,6 +141,10 @@ internal fun DockLayout.applyOperation(
             idGenerator = idGenerator,
         )
         is DockLayoutOperation.MoveToCenter -> moveToCenter(operation, idGenerator)
+        is DockLayoutOperation.SplitCenterPanel -> splitCenterPanel(operation, capabilities, idGenerator)
+        is DockLayoutOperation.MoveToCenterPanel -> moveToCenterPanel(operation, idGenerator)
+        is DockLayoutOperation.ArrangeCenter -> arrangeCenter(operation, capabilities, idGenerator)
+        is DockLayoutOperation.ResizeCenterSplit -> resizeCenterSplit(operation)
         is DockLayoutOperation.ResizeLane -> resizeLane(operation)
         is DockLayoutOperation.ResizeGroups -> resizeGroups(operation)
     }
@@ -209,21 +250,26 @@ private fun DockLayout.moveToCenter(
     operation: DockLayoutOperation.MoveToCenter,
     idGenerator: DockIdGenerator,
 ): DockOperationResult {
-    val existingCenterGroup = centerGroup
-    if (existingCenterGroup != null && existingCenterGroup.dockableIds == listOf(operation.dockableId)) {
+    val existingTargetGroup = center.defaultTargetPanel?.group
+    if (existingTargetGroup != null && existingTargetGroup.dockableIds == listOf(operation.dockableId)) {
         return DockOperationResult.Applied(this)
     }
     val layoutWithoutDockable = removingDockable(operation.dockableId)
-    val remainingCenterGroup = layoutWithoutDockable.centerGroup
-    if (remainingCenterGroup == null) {
-        val newCenterGroup = TabGroup(id = idGenerator.nextId(GROUP_ID_PREFIX), dockableIds = listOf(operation.dockableId))
-        return DockOperationResult.Applied(layoutWithoutDockable.copy(centerGroup = newCenterGroup).normalized())
+    val targetPanel = layoutWithoutDockable.center.defaultTargetPanel
+    if (targetPanel == null) {
+        val newCenter = CenterGrid.single(
+            group = TabGroup(id = idGenerator.nextId(GROUP_ID_PREFIX), dockableIds = listOf(operation.dockableId)),
+            panelId = idGenerator.nextId(PANEL_ID_PREFIX),
+        )
+        return DockOperationResult.Applied(layoutWithoutDockable.copy(center = newCenter).normalized())
     }
+    val remainingTargetGroup = targetPanel.group
+        ?: return layoutWithoutDockable.moveToCenterPanel(DockLayoutOperation.MoveToCenterPanel(operation.dockableId, targetPanel.id), idGenerator)
     return moveToGroup(
         DockLayoutOperation.MoveToGroup(
             dockableId = operation.dockableId,
-            targetGroupId = remainingCenterGroup.id,
-            tabIndex = operation.tabIndex ?: remainingCenterGroup.dockableIds.size,
+            targetGroupId = remainingTargetGroup.id,
+            tabIndex = operation.tabIndex ?: remainingTargetGroup.dockableIds.size,
         ),
     )
 }
@@ -322,7 +368,8 @@ private fun DockLayout.removingDockableGivingShareTo(dockableId: DockableId, pre
  * - no empty groups or lanes remain; lanes collapse towards the edge automatically because they are ordered edge-first,
  * - each group's selection is one of its dockables,
  * - group fractions in each lane are positive and sum to 1,
- * - lane extents are within the accepted range.
+ * - lane extents are within the accepted range;
+ * - the center grid is canonical (see [CenterGrid.normalized]).
  */
 internal fun DockLayout.normalized(): DockLayout {
     val seenDockableIds = mutableSetOf<DockableId>()
@@ -353,11 +400,11 @@ internal fun DockLayout.normalized(): DockLayout {
     // Order matters for duplicate resolution: outer frame, inner frame, then center.
     val normalizedOuterFrame = normalizeFrame(outerFrame)
     val normalizedInnerFrame = normalizeFrame(innerFrame)
-    val normalizedCenterGroup = centerGroup?.let(::normalizeGroup)?.copy(sizeFraction = 1f)
+    val normalizedCenter = center.normalized(::normalizeGroup)
     return DockLayout(
         outerFrame = normalizedOuterFrame,
         innerFrame = normalizedInnerFrame,
-        centerGroup = normalizedCenterGroup,
+        center = normalizedCenter,
     )
 }
 
@@ -384,7 +431,7 @@ internal fun DockLayout.mapGroups(transform: (TabGroup) -> TabGroup): DockLayout
     return DockLayout(
         outerFrame = mapFrame(outerFrame),
         innerFrame = mapFrame(innerFrame),
-        centerGroup = centerGroup?.let(transform),
+        center = center.mapPanels { panel -> panel.copy(group = panel.group?.let(transform)) },
     )
 }
 

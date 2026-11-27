@@ -1,5 +1,6 @@
 package io.github.majorbolt.dockinggrid.geometry
 
+import io.github.majorbolt.dockinggrid.CenterGrid
 import io.github.majorbolt.dockinggrid.DockFrame
 import io.github.majorbolt.dockinggrid.DockFrameLevel
 import io.github.majorbolt.dockinggrid.DockLane
@@ -14,6 +15,9 @@ import io.github.majorbolt.dockinggrid.DockingCapabilities
 import io.github.majorbolt.dockinggrid.LayoutOrientation
 import io.github.majorbolt.dockinggrid.TabGroup
 import io.github.majorbolt.dockinggrid.applyOperation
+import io.github.majorbolt.dockinggrid.canSplitPanel
+import io.github.majorbolt.dockinggrid.mapPanels
+import io.github.majorbolt.dockinggrid.normalized
 import io.github.majorbolt.dockinggrid.removingDockableKeepingContainers
 
 /** A place a dragged dockable can be dropped, independent of which dockable is dragged. */
@@ -29,6 +33,12 @@ public sealed interface DropTarget {
     /** The empty center placeholder. */
     public data object Center : DropTarget
 
+    /** Splits the center panel [panelId]: the dropped dockable gets a new panel on [side]. */
+    public data class SplitCenterPanel(val panelId: String, val side: DockSide) : DropTarget
+
+    /** An empty center panel, which the dropped dockable fills. */
+    public data class EmptyCenterPanel(val panelId: String) : DropTarget
+
     /** The dragged dockable's own lifted slot: dropping there changes nothing. */
     public data object Origin : DropTarget
 }
@@ -43,6 +53,8 @@ internal fun DropTarget.toOperation(dockableId: DockableId, layout: DockLayout):
     is DropTarget.NewGroup -> DockLayoutOperation.MoveToNewGroup(dockableId, laneId, groupIndex, splitGroupId)
     is DropTarget.NewLane -> DockLayoutOperation.MoveToNewLane(dockableId, frameLevel, side, laneIndex)
     DropTarget.Center -> DockLayoutOperation.MoveToCenter(dockableId)
+    is DropTarget.SplitCenterPanel -> DockLayoutOperation.SplitCenterPanel(dockableId, panelId, side)
+    is DropTarget.EmptyCenterPanel -> DockLayoutOperation.MoveToCenterPanel(dockableId, panelId)
     DropTarget.Origin -> null
 }
 
@@ -109,9 +121,11 @@ internal fun emptySideBands(
  * 2. the header of the group under the pointer: add, reorder or merge as a tab;
  * 3. the rest of the empty-side bands;
  * 4. the group body: in a lane, bands along the two edges across the stacking axis create a new lane
- *    ([DockingMetrics.laneInsertionBandShare]) and the rest splits the lane by halves; the center body is
- *    divided along its diagonals into four triangles, each creating an inner dock on that side;
- * 5. the empty center placeholder as a whole.
+ *    ([DockingMetrics.laneInsertionBandShare]) and the rest splits the lane by halves; the body of a center panel
+ *    is divided along its diagonals into four triangles, each splitting the panel on that side; where the panel
+ *    cannot be split (2×2 limit, or [DockingCapabilities.isCenterGridEnabled] off) the triangle creates an inner
+ *    dock on that side;
+ * 5. an empty center panel, or the empty center placeholder, as a whole.
  * Returns `null` over dividers or outside the content.
  */
 internal fun resolveDropTarget(
@@ -140,7 +154,7 @@ internal fun resolveDropTarget(
 
     bands.firstOrNull { band -> band.rect.contains(horizontalPosition, verticalPosition) }?.let { band -> return band.target }
     if (groupHit == null) return null
-    if (hitGroup == null) return DropTarget.Center
+    if (hitGroup == null) return groupHit.centerPanelId?.let(DropTarget::EmptyCenterPanel) ?: DropTarget.Center
 
     val bodyRect = if (header == null) {
         groupHit.rect
@@ -150,6 +164,11 @@ internal fun resolveDropTarget(
     val laneContext = groupHit.laneContext
     if (laneContext == null) {
         val side = triangleSide(bodyRect, horizontalPosition, verticalPosition) ?: return null
+        val panelId = groupHit.centerPanelId
+        // Splitting acts on the layout without the lifted dockable, whose emptied panel then disappears.
+        if (panelId != null && capabilities.isCenterGridEnabled && layout.normalized().center.canSplitPanel(panelId, side)) {
+            return DropTarget.SplitCenterPanel(panelId, side)
+        }
         val frameLevel = if (capabilities.isFrameAllowed(DockFrameLevel.INNER)) DockFrameLevel.INNER else DockFrameLevel.OUTER
         return DropTarget.NewLane(frameLevel, side, laneIndex = layout.frame(frameLevel).lanes(side).count { lane -> lane.isOccupied })
     }
@@ -172,11 +191,15 @@ internal fun resolveDropTarget(
 
 private val DockLane.isOccupied: Boolean get() = groups.any { group -> group.dockableIds.isNotEmpty() }
 
-/** The group (or the empty center, [group] `null`) under the pointer; [laneContext] is `null` for the center. */
+/**
+ * The group under the pointer, or an empty center panel or the empty center ([group] `null`); [laneContext] is `null`
+ * in the center, [centerPanelId] is the hit center panel.
+ */
 private data class GroupHit(
     val group: TabGroup?,
     val rect: DockRect,
     val laneContext: LaneContext?,
+    val centerPanelId: String? = null,
 )
 
 private data class LaneContext(
@@ -189,7 +212,15 @@ private data class LaneContext(
 
 private fun groupAt(layout: DockLayout, geometry: DockGeometry, horizontalPosition: Float, verticalPosition: Float): GroupHit? {
     if (geometry.centerRect.contains(horizontalPosition, verticalPosition)) {
-        return GroupHit(group = layout.centerGroup, rect = geometry.centerRect, laneContext = null)
+        if (layout.center.isEmpty) return GroupHit(group = null, rect = geometry.centerRect, laneContext = null)
+        layout.center.panels.forEach { panel ->
+            val panelRect = geometry.centerPanelRects[panel.id]
+            if (panelRect != null && panelRect.contains(horizontalPosition, verticalPosition)) {
+                return GroupHit(group = panel.group, rect = panelRect, laneContext = null, centerPanelId = panel.id)
+            }
+        }
+        // Between two panels: on a center divider.
+        return null
     }
     DockFrameLevel.entries.forEach { frameLevel ->
         DockSide.entries.forEach { side ->
@@ -325,8 +356,16 @@ private fun DockLayout.withPositionalIds(): DockLayout {
     return DockLayout(
         outerFrame = renameFrame(outerFrame, "outer"),
         innerFrame = renameFrame(innerFrame, "inner"),
-        centerGroup = centerGroup?.copy(id = "center"),
+        center = center.withPositionalIds(),
     )
+}
+
+private fun CenterGrid.withPositionalIds(): CenterGrid {
+    var panelIndex = 0
+    return mapPanels { panel ->
+        val panelIdentifier = "center-${panelIndex++}"
+        panel.copy(id = panelIdentifier, group = panel.group?.copy(id = "$panelIdentifier-group"))
+    }
 }
 
 /**

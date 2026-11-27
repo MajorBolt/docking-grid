@@ -187,6 +187,21 @@ DockHost(
 ) { dockableId -> /* content */ }
 ```
 
+### Center grid
+
+The center is a grid of up to 2×2 panels, each a tab group: one panel, two side by side or stacked, three with one
+full-length panel, or four. Dropping a dockable on a side of a center panel splits it; a panel that loses its last
+dockable disappears. `DockLayoutOperation.ArrangeCenter(CenterPreset.GRID_2X2)` (and the other presets) rearranges
+the center without closing anything; panels it adds stay empty until something is dropped in. The Material options
+menu of a center panel offers the presets.
+
+```kotlin
+onApplyOperation(DockLayoutOperation.ArrangeCenter(CenterPreset.GRID_2X2))   // for example from your own menu
+MaterialDockHost(/* … */, metrics = DockingMetrics(centerSplitsResizable = false))  // always even splits
+```
+
+Set `DockingCapabilities(isCenterGridEnabled = false)` to keep a single center group.
+
 ### Capabilities
 
 `DockingCapabilities` limits the structure, for example for a tablet: whether docks may be created inside the
@@ -196,7 +211,8 @@ built in; define other profiles in your application.
 ## Sample
 
 `./gradlew :sample:run` opens a desktop window with five dummy dockables, a custom divider and highlight
-color, a Window menu that opens and closes them, and a layout stored in `~/.docking-grid-sample/layout.json`.
+color, a Window menu that opens and closes them, a Center menu with the center presets and a switch for resizable
+center splits, and a layout stored in `~/.docking-grid-sample/layout.json`.
 
 ## Platform notes
 

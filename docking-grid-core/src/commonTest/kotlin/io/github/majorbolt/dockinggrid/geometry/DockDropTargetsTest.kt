@@ -235,13 +235,22 @@ class DockDropTargetsTest {
     }
 
     @Test
-    fun centerTrianglesCreateInnerLanesAndItsHeaderAddsATab() {
+    fun centerTrianglesSplitThePanelTheInnerBandsCreateInnerLanesAndItsHeaderAddsATab() {
         val centerGroupId = defaultLayout.groupIdOf(GameControls)
+        val centerPanelId = defaultLayout.center.panels.single().id
 
         assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.LEFT, 0), targetAt(420f, 450f), "inner band")
-        assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.LEFT, 0), targetAt(450f, 450f), "left triangle")
-        assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.TOP, 0), targetAt(800f, 420f), "top triangle")
+        assertEquals(DropTarget.SplitCenterPanel(centerPanelId, DockSide.LEFT), targetAt(450f, 450f), "left triangle")
+        assertEquals(DropTarget.SplitCenterPanel(centerPanelId, DockSide.TOP), targetAt(800f, 420f), "top triangle")
         assertEquals(DropTarget.Tab(centerGroupId, 1), targetAt(900f, 20f), "header")
+    }
+
+    @Test
+    fun withoutTheCenterGridTheCenterTrianglesCreateInnerLanes() {
+        val withoutCenterGrid = desktop.copy(isCenterGridEnabled = false)
+
+        assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.LEFT, 0), targetAt(450f, 450f, capabilities = withoutCenterGrid))
+        assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.TOP, 0), targetAt(800f, 420f, capabilities = withoutCenterGrid))
     }
 
     @Test
@@ -257,16 +266,21 @@ class DockDropTargetsTest {
     }
 
     @Test
-    fun tabletHasNoInnerBandsAndCenterTrianglesTargetTheOuterFrame() {
+    fun tabletHasNoInnerBandsAndCenterTrianglesTargetTheOuterFrameWithoutTheCenterGrid() {
         val tabletLayout = defaultWindowDockState(TestDockables.catalog, TestCapabilities.Tablet).profile(landscape).layout
 
         assertEquals(
-            DropTarget.NewLane(DockFrameLevel.OUTER, DockSide.TOP, 0),
+            DropTarget.SplitCenterPanel(tabletLayout.center.panels.single().id, DockSide.TOP),
             targetAt(800f, 40f, tabletLayout, TestCapabilities.Tablet),
         )
         assertEquals(
+            DropTarget.NewLane(DockFrameLevel.OUTER, DockSide.TOP, 0),
+            targetAt(800f, 40f, tabletLayout, TestCapabilities.Tablet.copy(isCenterGridEnabled = false)),
+        )
+        assertEquals(
             DropTarget.NewLane(DockFrameLevel.OUTER, DockSide.LEFT, 1),
-            targetAt(420f, 450f, tabletLayout, TestCapabilities.Tablet),
+            targetAt(420f, 450f, tabletLayout, TestCapabilities.Tablet.copy(isCenterGridEnabled = false)),
+            "No inner band: the left triangle",
         )
     }
 

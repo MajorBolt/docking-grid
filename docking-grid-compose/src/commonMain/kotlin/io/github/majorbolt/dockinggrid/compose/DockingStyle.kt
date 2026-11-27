@@ -10,6 +10,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.majorbolt.dockinggrid.CenterPreset
 
 /**
  * Appearance of a [DockHost]. The defaults are neutral and need no design system; `docking-grid-material3` derives a
@@ -66,6 +67,9 @@ public data class DockingColors(
  * Texts of a [DockHost].
  *
  * @property emptyCenter shown in the center while it holds no dockable.
+ * @property emptyCenterPanel shown in an empty center panel that a [CenterPreset] created.
+ * @property centerLayout caption of the center arrangements in a center panel's options menu.
+ * @property centerPresetTitles name of each [CenterPreset]; a missing entry shows the preset's name.
  * @property liftedSlot shown in the place of a dragged dockable while the pointer is over no other target.
  * @property close label of the action that closes a dockable.
  * @property options label of the menu with further actions of a dockable, where the chrome has one.
@@ -73,9 +77,26 @@ public data class DockingColors(
 @Immutable
 public data class DockingStrings(
     val emptyCenter: String = "Drag a window here",
+    val emptyCenterPanel: String = "Drop a window here",
+    val centerLayout: String = "Center layout",
+    val centerPresetTitles: Map<CenterPreset, String> = DEFAULT_CENTER_PRESET_TITLES,
     val liftedSlot: String = "Drop here to keep it in place",
     val close: String = "Close",
     val options: String = "Options",
+)
+
+/** The title of [preset] from [DockingStrings.centerPresetTitles]. */
+public fun DockingStrings.titleOf(preset: CenterPreset): String = centerPresetTitles[preset] ?: preset.name
+
+private val DEFAULT_CENTER_PRESET_TITLES: Map<CenterPreset, String> = mapOf(
+    CenterPreset.SINGLE to "One panel",
+    CenterPreset.SIDE_BY_SIDE to "Two side by side",
+    CenterPreset.STACKED to "Two stacked",
+    CenterPreset.THREE_FULL_LEFT to "Three, large on the left",
+    CenterPreset.THREE_FULL_RIGHT to "Three, large on the right",
+    CenterPreset.THREE_FULL_TOP to "Three, large on top",
+    CenterPreset.THREE_FULL_BOTTOM to "Three, large at the bottom",
+    CenterPreset.GRID_2X2 to "Four in a 2×2 grid",
 )
 
 /** The style of the enclosing [DockHost], for slot implementations. */

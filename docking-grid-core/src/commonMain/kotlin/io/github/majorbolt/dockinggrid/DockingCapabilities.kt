@@ -9,11 +9,14 @@ package io.github.majorbolt.dockinggrid
  * @property isInnerFrameEnabled whether docks may be created inside the center (the inner frame).
  * @property maximumGroupsPerLane how many tab groups one lane may hold.
  * @param maximumLanesPerSide how many lanes each side may hold, per orientation; missing entries are unlimited.
+ * @property isCenterGridEnabled whether the center may be split into up to 2×2 panels. When `false`, the center is a
+ * single tab group and dropping on the sides of the center creates docks around it.
  */
 public data class DockingCapabilities(
     val isInnerFrameEnabled: Boolean,
     val maximumGroupsPerLane: Int?,
     private val maximumLanesPerSide: Map<LayoutOrientation, Map<DockSide, Int>>,
+    val isCenterGridEnabled: Boolean = true,
 ) {
     public fun maximumLanes(orientation: LayoutOrientation, side: DockSide): Int? =
         maximumLanesPerSide[orientation]?.get(side)

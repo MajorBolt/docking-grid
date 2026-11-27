@@ -4,6 +4,24 @@ All notable changes to Docking Grid are documented here. The project follows [Se
 
 ## Unreleased
 
+- Center grid: the center can hold one panel, two side by side or stacked, three (one full-length) or a 2×2 grid,
+  each panel a tab group. **Breaking:** `DockLayout.centerGroup` is replaced by `DockLayout.center: CenterGrid`
+  (`CenterAxis`, `CenterSection`, `CenterPanel`; `CenterGrid.single(group)` for one panel).
+  - Dropping on a side triangle of a center panel splits it (`DropTarget.SplitCenterPanel`,
+    `DockLayoutOperation.SplitCenterPanel`); where that would exceed 2×2, the triangle creates an inner dock as before.
+  - `DockLayoutOperation.ArrangeCenter(CenterPreset)` rearranges the center in one of eight presets and keeps every
+    dockable; panels the preset adds stay empty drop targets (`DropTarget.EmptyCenterPanel`,
+    `DockLayoutOperation.MoveToCenterPanel`). A panel that loses its last dockable is removed.
+  - Center dividers resize the splits (`DividerTarget.CenterSplit`, `DockLayoutOperation.ResizeCenterSplit`).
+    `DockingMetrics.centerSplitsResizable = false` shows every split evenly and makes the dividers drawn only
+    (`DockDivider.isResizable`).
+  - `DockingCapabilities.isCenterGridEnabled` (default `true`) switches the grid off; `reconciled` then merges a
+    stored grid into one tab group.
+  - `docking-grid-compose`: `DockGroupScope.centerPreset` and `arrangeCenter`, `DockingStrings.emptyCenterPanel`,
+    `centerLayout` and `centerPresetTitles`, test tags for empty panels and dividers.
+  - `docking-grid-material3`: the options menu of a center panel offers the presets
+    (`MaterialCenterLayoutMenuSection`).
+  - `docking-grid-persistence`: schema 4 stores the grid. Documents of schema 3 are reported as `OutdatedSchema`.
 - `docking-grid-compose`: `DockDragController` and `rememberDockDragController()` let code outside a `DockHost`
   (for example an application toolbar) drag a dockable over it, with the same preview, highlight, commit and
   cancellation as a header drag. `DockHost` and `MaterialDockHost` take an optional `dragController`.

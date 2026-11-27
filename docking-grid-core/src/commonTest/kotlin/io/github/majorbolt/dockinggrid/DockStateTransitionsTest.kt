@@ -41,7 +41,7 @@ class DockStateTransitionsTest {
         assertEquals(0.25f, leftLane.extentFraction)
         val rightLane = layout.outerFrame.lanes(DockSide.RIGHT).single()
         assertEquals(listOf(listOf(Players), listOf(AudioMixer)), rightLane.groups.map { group -> group.dockableIds })
-        assertEquals(listOf(GameControls), layout.centerGroup?.dockableIds)
+        assertEquals(listOf(GameControls), layout.center.groups.singleOrNull()?.dockableIds)
         assertTrue(layout.innerFrame.sides.isEmpty())
         assertEquals(state.layout(landscape), state.layout(portrait))
     }
@@ -62,7 +62,7 @@ class DockStateTransitionsTest {
     fun reopenRestoresTheTabPositionInTheRememberedGroup() {
         val withTabs = defaultWindowDockState(TestDockables.catalog, desktop)
             .applyOrFail(DockLayoutOperation.MoveToGroup(Players, groupIdOf(defaultWindowDockState(TestDockables.catalog, desktop), GameControls), tabIndex = 0))
-        val centerGroupId = assertNotNull(withTabs.layout().centerGroup).id
+        val centerGroupId = assertNotNull(withTabs.layout().center.groups.singleOrNull()).id
 
         val reopened = withTabs.closingDockable(Players).openingDockable(Players, TestDockables.catalog, desktop)
 
@@ -135,7 +135,7 @@ class DockStateTransitionsTest {
             openDockableIds = setOf(Scenes, Players),
             profiles = mapOf(
                 landscape to DockProfile(
-                    layout = DockLayout(centerGroup = TabGroup(id = "center", dockableIds = listOf(Scenes, AudioMixer))),
+                    layout = DockLayout(center = CenterGrid.single(TabGroup(id = "center", dockableIds = listOf(Scenes, AudioMixer)))),
                 ),
             ),
         )
@@ -170,7 +170,7 @@ class DockStateTransitionsTest {
                         outerFrame = DockFrame(
                             mapOf(DockSide.LEFT to listOf(DockLane("left", 0.25f, listOf(TabGroup("left-group", listOf(removedDockable)))))),
                         ),
-                        centerGroup = TabGroup(id = "center", dockableIds = listOf(removedDockable, Scenes), selectedDockableId = removedDockable),
+                        center = CenterGrid.single(TabGroup(id = "center", dockableIds = listOf(removedDockable, Scenes), selectedDockableId = removedDockable)),
                     ),
                     placementMemory = mapOf(
                         removedDockable to PlacementMemory(DockLocation.Center, "center", null, 0, 0, 0, null),
@@ -189,7 +189,7 @@ class DockStateTransitionsTest {
         }
         // The stored landscape profile: the lane that only held the unknown dockable collapses.
         assertTrue(reconciledState.layout(landscape).outerFrame.sides.isEmpty())
-        assertEquals(Scenes, reconciledState.layout(landscape).centerGroup?.selectedDockableId)
+        assertEquals(Scenes, reconciledState.layout(landscape).center.groups.singleOrNull()?.selectedDockableId)
     }
 
     @Test

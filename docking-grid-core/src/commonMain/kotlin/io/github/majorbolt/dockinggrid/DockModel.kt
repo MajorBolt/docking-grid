@@ -70,15 +70,102 @@ public data class DockFrame(
     val allLanes: List<DockLane> get() = DockSide.entries.flatMap { side -> lanes(side) }
 }
 
+/** How the two sections of a [CenterGrid] are arranged. */
+public enum class CenterAxis {
+    /** Sections side by side; the panels of a section are stacked. */
+    HORIZONTAL,
+
+    /** Sections stacked; the panels of a section are side by side. */
+    VERTICAL;
+
+    /** The other axis: the one the panels of a section are arranged along. */
+    public val crossAxis: CenterAxis get() = if (this == HORIZONTAL) VERTICAL else HORIZONTAL
+
+    public companion object {
+        /** The axis along which a split at [side] inserts: LEFT/RIGHT side by side, TOP/BOTTOM stacked. */
+        public fun of(side: DockSide): CenterAxis = if (side.hasColumnLanes) HORIZONTAL else VERTICAL
+    }
+}
+
+/**
+ * One cell of the [CenterGrid].
+ *
+ * @property group the tab group shown in the panel, or `null` for an empty panel created by a [CenterPreset]
+ * that waits for a dockable to be dropped in. A panel whose group loses its last dockable is removed.
+ */
+public data class CenterPanel(
+    val id: String,
+    val group: TabGroup? = null,
+)
+
+/**
+ * One or two panels arranged along the grid's [CenterAxis.crossAxis].
+ *
+ * @property splitFraction share of the section's length (without the divider) that the first panel takes.
+ */
+public data class CenterSection(
+    val panels: List<CenterPanel>,
+    val splitFraction: Float = 0.5f,
+)
+
+/**
+ * The inner CENTER: up to two sections along [axis], each with up to two panels, so one full panel, two
+ * panels side by side or stacked, three panels (one full-length) or a 2×2 grid. No sections means the
+ * center shows the empty placeholder.
+ *
+ * @property splitFraction share of the center's length along [axis] (without the divider) that the first section takes.
+ */
+public data class CenterGrid(
+    val axis: CenterAxis = CenterAxis.HORIZONTAL,
+    val sections: List<CenterSection> = emptyList(),
+    val splitFraction: Float = 0.5f,
+) {
+    val panels: List<CenterPanel> get() = sections.flatMap { section -> section.panels }
+
+    val groups: List<TabGroup> get() = panels.mapNotNull { panel -> panel.group }
+
+    val isEmpty: Boolean get() = sections.isEmpty()
+
+    public fun findPanel(panelId: String): CenterPanel? = panels.firstOrNull { panel -> panel.id == panelId }
+
+    public fun findPanelOf(groupId: String): CenterPanel? = panels.firstOrNull { panel -> panel.group?.id == groupId }
+
+    /** The panels from the top left to the bottom right, row by row. */
+    val panelsInReadingOrder: List<CenterPanel>
+        get() = when (axis) {
+            // Sections are columns: read the first row of both columns, then the second.
+            CenterAxis.HORIZONTAL -> (0..1).flatMap { panelIndex -> sections.mapNotNull { section -> section.panels.getOrNull(panelIndex) } }
+            CenterAxis.VERTICAL -> panels
+        }
+
+    public companion object {
+        /** A center with one panel showing [group]. */
+        public fun single(group: TabGroup, panelId: String = "panel-1"): CenterGrid =
+            CenterGrid(sections = listOf(CenterSection(panels = listOf(CenterPanel(panelId, group)))))
+    }
+}
+
+/** Ready-made center arrangements; the panels of a preset are listed in reading order. */
+public enum class CenterPreset(public val panelCount: Int) {
+    SINGLE(1),
+    SIDE_BY_SIDE(2),
+    STACKED(2),
+    THREE_FULL_LEFT(3),
+    THREE_FULL_RIGHT(3),
+    THREE_FULL_TOP(3),
+    THREE_FULL_BOTTOM(3),
+    GRID_2X2(4),
+}
+
 /**
  * The complete arrangement of one window in one orientation.
  *
- * @property centerGroup the inner CENTER tab group, or `null` when it shows the empty placeholder.
+ * @property center the inner CENTER grid; empty when it shows the placeholder.
  */
 public data class DockLayout(
     val outerFrame: DockFrame = DockFrame(),
     val innerFrame: DockFrame = DockFrame(),
-    val centerGroup: TabGroup? = null,
+    val center: CenterGrid = CenterGrid(),
 ) {
     public fun frame(level: DockFrameLevel): DockFrame = when (level) {
         DockFrameLevel.OUTER -> outerFrame
@@ -93,7 +180,7 @@ public data class DockLayout(
     val allGroups: List<TabGroup>
         get() = outerFrame.allLanes.flatMap { lane -> lane.groups } +
             innerFrame.allLanes.flatMap { lane -> lane.groups } +
-            listOfNotNull(centerGroup)
+            center.groups
 
     val placedDockableIds: List<DockableId> get() = allGroups.flatMap { group -> group.dockableIds }
 
@@ -115,7 +202,8 @@ public data class DockLayout(
 
     val allIds: Set<String>
         get() = allGroups.map { group -> group.id }.toSet() +
-            (outerFrame.allLanes + innerFrame.allLanes).map { lane -> lane.id }
+            (outerFrame.allLanes + innerFrame.allLanes).map { lane -> lane.id } +
+            center.panels.map { panel -> panel.id }
 }
 
 /** Position of a lane inside a [DockLayout]. */

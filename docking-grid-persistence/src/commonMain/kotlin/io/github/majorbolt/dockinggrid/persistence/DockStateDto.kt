@@ -3,8 +3,9 @@ package io.github.majorbolt.dockinggrid.persistence
 import kotlinx.serialization.Serializable
 
 /** Current version of the stored format; see [DockStateCodec]. */
+// 4: the center is a grid of panels (center) instead of one group (centerGroup).
 // 3: neutral keys (openDockableIds, closedDockableIds, dockableIds, selectedDockableId). 2 used Tool Window names.
-internal const val DOCK_STATE_SCHEMA_VERSION = 3
+internal const val DOCK_STATE_SCHEMA_VERSION = 4
 
 @Serializable
 internal data class WindowDockStateDto(
@@ -25,7 +26,28 @@ internal data class DockProfileDto(
 internal data class DockLayoutDto(
     val outerFrame: DockFrameDto = DockFrameDto(),
     val innerFrame: DockFrameDto = DockFrameDto(),
-    val centerGroup: TabGroupDto? = null,
+    val center: CenterGridDto = CenterGridDto(),
+)
+
+@Serializable
+internal data class CenterGridDto(
+    /** `HORIZONTAL` or `VERTICAL`. */
+    val axis: String = "HORIZONTAL",
+    val splitFraction: Float = 0.5f,
+    val sections: List<CenterSectionDto> = emptyList(),
+)
+
+@Serializable
+internal data class CenterSectionDto(
+    val splitFraction: Float = 0.5f,
+    val panels: List<CenterPanelDto> = emptyList(),
+)
+
+@Serializable
+internal data class CenterPanelDto(
+    val id: String,
+    /** `null` for an empty panel. */
+    val group: TabGroupDto? = null,
 )
 
 @Serializable

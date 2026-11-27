@@ -36,7 +36,7 @@ class DockLayoutOperationsTest {
                 DockSide.RIGHT to listOf(lane("right-edge", 0.3f, group("mixer-group", AudioMixer))),
             ),
         ),
-        centerGroup = group("center-group", GameControls),
+        center = CenterGrid.single(group("center-group", GameControls)),
     )
 
     private fun DockLayout.applyOrFail(
@@ -145,7 +145,7 @@ class DockLayoutOperationsTest {
                 DockSide.RIGHT to listOf(lane("right", 0.25f, group("mixer-group", AudioMixer))),
             ),
         ),
-        centerGroup = group("center-group", GameControls),
+        center = CenterGrid.single(group("center-group", GameControls)),
     )
 
     private fun DockLayout.groupFractions(laneId: String): Map<String, Float> {
@@ -243,7 +243,7 @@ class DockLayoutOperationsTest {
                     ),
                 ),
             ),
-            centerGroup = group("center-group", GameControls),
+            center = CenterGrid.single(group("center-group", GameControls)),
         )
 
         val result = layout.applyOrFail(DockLayoutOperation.MoveToNewLane(Players, DockFrameLevel.OUTER, DockSide.LEFT, laneIndex = 1))
@@ -267,10 +267,10 @@ class DockLayoutOperationsTest {
     @Test
     fun movingTheOnlyCenterWindowOutLeavesThePlaceholderAndMovingInCreatesTheCenterGroup() {
         val emptyCenter = twoLeftLanesLayout.applyOrFail(DockLayoutOperation.MoveToGroup(GameControls, "mixer-group", tabIndex = 1))
-        assertNull(emptyCenter.centerGroup)
+        assertNull(emptyCenter.center.groups.singleOrNull())
 
         val refilledCenter = emptyCenter.applyOrFail(DockLayoutOperation.MoveToCenter(Scenes))
-        assertEquals(listOf(Scenes), refilledCenter.centerGroup?.dockableIds)
+        assertEquals(listOf(Scenes), refilledCenter.center.groups.singleOrNull()?.dockableIds)
     }
 
     @Test
@@ -296,7 +296,7 @@ class DockLayoutOperationsTest {
 
         val singleLeftLane = DockLayout(
             outerFrame = DockFrame(mapOf(DockSide.LEFT to listOf(lane("left", 0.2f, group("a", Scenes), group("b", StreamInfo))))),
-            centerGroup = group("center", GameControls),
+            center = CenterGrid.single(group("center", GameControls)),
         )
         val laneResult = singleLeftLane.applyOperation(
             DockLayoutOperation.MoveToNewLane(GameControls, DockFrameLevel.OUTER, DockSide.LEFT, 1),
@@ -366,13 +366,13 @@ class DockLayoutOperationsTest {
     fun normalizationRemovesDuplicatesAndFixesInvalidSelection() {
         val brokenLayout = DockLayout(
             outerFrame = DockFrame(mapOf(DockSide.LEFT to listOf(lane("left", 0.2f, group("a", listOf(Scenes, Players)))))),
-            centerGroup = TabGroup(id = "center", dockableIds = listOf(Scenes, GameControls), selectedDockableId = AudioMixer),
+            center = CenterGrid.single(TabGroup(id = "center", dockableIds = listOf(Scenes, GameControls), selectedDockableId = AudioMixer)),
         )
 
         val normalizedLayout = brokenLayout.normalized()
 
-        assertEquals(listOf(GameControls), normalizedLayout.centerGroup?.dockableIds)
-        assertEquals(GameControls, normalizedLayout.centerGroup?.selectedDockableId)
+        assertEquals(listOf(GameControls), normalizedLayout.center.groups.singleOrNull()?.dockableIds)
+        assertEquals(GameControls, normalizedLayout.center.groups.singleOrNull()?.selectedDockableId)
         assertEquals(listOf(Scenes, Players), normalizedLayout.placedDockableIds.take(2))
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import io.github.majorbolt.dockinggrid.DockableId
+import io.github.majorbolt.dockinggrid.CenterPreset
 import io.github.majorbolt.dockinggrid.TabGroup
 import io.github.majorbolt.dockinggrid.geometry.DockRect
 
@@ -38,6 +39,16 @@ public interface DockGroupScope {
     public fun select(dockableId: DockableId)
 
     public fun close(dockableId: DockableId)
+
+    /**
+     * The current arrangement of the center when this group is a center panel and the center grid is enabled
+     * ([io.github.majorbolt.dockinggrid.DockingCapabilities.isCenterGridEnabled]); `null` otherwise. Chrome can offer
+     * [arrangeCenter] while it is not `null`.
+     */
+    public val centerPreset: CenterPreset? get() = null
+
+    /** Rearranges the center as [preset]; the host commits this as a layout change. Only for center panels. */
+    public fun arrangeCenter(preset: CenterPreset) {}
 
     /**
      * Marks the tab of [dockableId] in a tab strip. Required on every tab: it starts dragging the dockable from the
@@ -78,6 +89,8 @@ internal fun DockGroupContainer(
     onCloseDockable: (DockableId) -> Unit,
     dragHandleModifier: (DockableId) -> Modifier,
     onHeaderMeasured: (HeaderMeasurement) -> Unit,
+    centerPreset: CenterPreset?,
+    onArrangeCenter: (CenterPreset) -> Unit,
     tabStrip: @Composable DockGroupScope.() -> Unit,
     header: @Composable DockGroupScope.() -> Unit,
     content: @Composable (DockableId) -> Unit,
@@ -122,6 +135,8 @@ internal fun DockGroupContainer(
         onSelect = onSelectTab,
         onClose = onCloseDockable,
         dragHandleModifier = dragHandleModifier,
+        centerPreset = centerPreset,
+        onArrangeCenter = onArrangeCenter,
         onTabPositioned = { dockableId, coordinates ->
             measurement.tabCoordinates[dockableId] = coordinates
             reportHeader()
@@ -176,8 +191,12 @@ private class GroupScope(
     private val onSelect: (DockableId) -> Unit,
     private val onClose: (DockableId) -> Unit,
     private val dragHandleModifier: (DockableId) -> Modifier,
+    override val centerPreset: CenterPreset?,
+    private val onArrangeCenter: (CenterPreset) -> Unit,
     private val onTabPositioned: (DockableId, LayoutCoordinates) -> Unit,
 ) : DockGroupScope {
+    override fun arrangeCenter(preset: CenterPreset) = onArrangeCenter(preset)
+
     override fun titleOf(dockableId: DockableId): String = titleProvider(dockableId)
 
     override fun select(dockableId: DockableId) = onSelect(dockableId)

@@ -71,7 +71,8 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
 }
 
 /**
- * Title bar of the selected dockable with an options menu that can close it.
+ * Title bar of the selected dockable with an options menu that can close it. In a center panel the menu also offers
+ * the center arrangements ([MaterialCenterLayoutMenuSection]).
  *
  * @param menuItems further entries of the options menu, shown below "Close", for the selected dockable. Use
  *   [MaterialDockMenuItem] for them and call `dismissMenu` when an entry was chosen.
@@ -129,6 +130,16 @@ public fun DockGroupScope.MaterialDockHeader(
                     },
                 )
                 menuItems(selectedDockableId) { isMenuExpanded = false }
+                val currentCenterPreset = centerPreset
+                if (currentCenterPreset != null) {
+                    MaterialCenterLayoutMenuSection(
+                        currentPreset = currentCenterPreset,
+                        onSelectPreset = { preset ->
+                            isMenuExpanded = false
+                            arrangeCenter(preset)
+                        },
+                    )
+                }
             }
         }
     }

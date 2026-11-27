@@ -1,5 +1,8 @@
 package io.github.majorbolt.dockinggrid.geometry
 
+import io.github.majorbolt.dockinggrid.CenterAxis
+import io.github.majorbolt.dockinggrid.CenterPanel
+import io.github.majorbolt.dockinggrid.CenterSection
 import io.github.majorbolt.dockinggrid.DockFrame
 import io.github.majorbolt.dockinggrid.DockFrameLevel
 import io.github.majorbolt.dockinggrid.DockLane
@@ -45,8 +48,13 @@ public data class DockingMetrics(
      * a new lane (for example the left and right quarter of a column group); the rest splits the lane by halves.
      */
     val laneInsertionBandShare: Float = 0.25f,
-    /** Minimum size of the empty-center placeholder. 0 means the placeholder may collapse completely. */
+    /** Minimum size of the empty-center placeholder and of empty center panels. 0 means they may collapse completely. */
     val emptyCenterMinimumDp: Float = 0f,
+    /**
+     * Whether the dividers between center panels can be dragged. When `false`, every center split is shown evenly
+     * (the stored split fractions are kept, only not applied) and the dividers are not resizable.
+     */
+    val centerSplitsResizable: Boolean = true,
 )
 
 /** What dragging a divider changes. */
@@ -63,15 +71,23 @@ public sealed interface DividerTarget {
         val laneId: String,
         val boundaryIndex: Int,
     ) : DividerTarget
+
+    /** Moves a center split: between the two sections when [sectionIndex] is `null`, otherwise inside that section. */
+    public data class CenterSplit(
+        val sectionIndex: Int?,
+    ) : DividerTarget
 }
 
 /**
  * @property movesHorizontally `true` for a vertical divider line that moves left/right (↔ cursor).
+ * @property isResizable `false` for a divider that is only drawn, such as a center split while
+ * [DockingMetrics.centerSplitsResizable] is off.
  */
 public data class DockDivider(
     val rect: DockRect,
     val movesHorizontally: Boolean,
     val target: DividerTarget,
+    val isResizable: Boolean = true,
 )
 
 /** Calculated placement of every element of a layout. All rects are in content coordinates (dp). */
@@ -82,6 +98,8 @@ public data class DockGeometry(
     val innerFrameRect: DockRect,
     val centerRect: DockRect,
     val dividers: List<DockDivider>,
+    /** Rect of every center panel by panel id, including empty panels; a panel's group has the same rect. */
+    val centerPanelRects: Map<String, DockRect> = emptyMap(),
 )
 
 /**
@@ -113,7 +131,7 @@ public fun calculateDockGeometry(
         bounds = innerFrameRect,
         remainingMinimum = DockSize(builder.centerMinimumWidth(), builder.centerMinimumHeight()),
     )
-    layout.centerGroup?.let { group -> builder.groupRects[group.id] = centerRect }
+    builder.placeCenter(centerRect)
     return DockGeometry(
         contentSize = contentSize,
         laneRects = builder.laneRects.toMap(),
@@ -121,8 +139,19 @@ public fun calculateDockGeometry(
         innerFrameRect = innerFrameRect,
         centerRect = centerRect,
         dividers = builder.dividers.toList(),
+        centerPanelRects = builder.centerPanelRects.toMap(),
     )
 }
+
+/**
+ * The minimum lengths of the two parts of the center split [target], along the split direction, or `null` when the
+ * split does not exist.
+ */
+internal fun DockLayout.centerSplitMinimumLengths(
+    target: DividerTarget.CenterSplit,
+    catalog: DockableCatalog,
+    metrics: DockingMetrics,
+): Pair<Float, Float>? = GeometryBuilder(this, DockSize(0f, 0f), catalog, metrics).centerSplitMinimumLengths(target)
 
 /** Minimum content size required to show this layout without violating any dockable's minimum size. */
 public fun DockLayout.minimumContentSize(catalog: DockableCatalog, metrics: DockingMetrics = DockingMetrics()): DockSize {
@@ -144,6 +173,7 @@ public fun DockLayout.fitsInto(
 }
 
 private const val SIZE_TOLERANCE = 0.01f
+private const val EVEN_CENTER_SPLIT = 0.5f
 
 private class GeometryBuilder(
     private val layout: DockLayout,
@@ -154,14 +184,122 @@ private class GeometryBuilder(
     val laneRects = mutableMapOf<String, DockRect>()
     val groupRects = mutableMapOf<String, DockRect>()
     val dividers = mutableListOf<DockDivider>()
+    val centerPanelRects = mutableMapOf<String, DockRect>()
 
     private val divider: Float get() = metrics.dividerThicknessDp
 
-    fun centerMinimumWidth(): Float =
-        layout.centerGroup?.let { group -> catalog.minimumWidthDp(group).toFloat() } ?: metrics.emptyCenterMinimumDp
+    fun centerMinimumWidth(): Float = centerMinimumLength(CenterAxis.HORIZONTAL)
 
-    fun centerMinimumHeight(): Float =
-        layout.centerGroup?.let { group -> catalog.minimumHeightDp(group).toFloat() } ?: metrics.emptyCenterMinimumDp
+    fun centerMinimumHeight(): Float = centerMinimumLength(CenterAxis.VERTICAL)
+
+    /**
+     * Minimum length of the center along [measuredAxis] (HORIZONTAL = width): along the grid axis the sections add up
+     * with their divider, otherwise the largest section counts.
+     */
+    private fun centerMinimumLength(measuredAxis: CenterAxis): Float {
+        val grid = layout.center
+        if (grid.isEmpty) return metrics.emptyCenterMinimumDp
+        val isAlongGridAxis = grid.axis == measuredAxis
+        val sectionLengths = grid.sections.map { section -> section.minimumLength(measuredAxis, isAlongGridAxis) }
+        return if (isAlongGridAxis) sectionLengths.sum() + (grid.sections.size - 1) * divider else sectionLengths.max()
+    }
+
+    /** Along the grid axis a section's panels lie next to each other across it, so the largest counts; across it they add up. */
+    private fun CenterSection.minimumLength(measuredAxis: CenterAxis, isAlongGridAxis: Boolean): Float {
+        val panelLengths = panels.map { panel -> panel.minimumLength(measuredAxis) }
+        return if (isAlongGridAxis) panelLengths.max() else panelLengths.sum() + (panels.size - 1) * divider
+    }
+
+    private fun CenterPanel.minimumLength(measuredAxis: CenterAxis): Float {
+        val panelGroup = group ?: return metrics.emptyCenterMinimumDp
+        val minimumDp = if (measuredAxis == CenterAxis.HORIZONTAL) catalog.minimumWidthDp(panelGroup) else catalog.minimumHeightDp(panelGroup)
+        return minimumDp.toFloat()
+    }
+
+    fun centerSplitMinimumLengths(target: DividerTarget.CenterSplit): Pair<Float, Float>? {
+        val grid = layout.center
+        val sectionIndex = target.sectionIndex
+        val lengths = if (sectionIndex == null) {
+            grid.sections.map { section -> section.minimumLength(grid.axis, isAlongGridAxis = true) }
+        } else {
+            grid.sections.getOrNull(sectionIndex)?.panels?.map { panel -> panel.minimumLength(grid.axis.crossAxis) }.orEmpty()
+        }
+        return if (lengths.size == 2) lengths[0] to lengths[1] else null
+    }
+
+    /** Divides [centerRect] into the sections and panels of the center grid. */
+    fun placeCenter(centerRect: DockRect) {
+        val grid = layout.center
+        if (grid.isEmpty) return
+        val sectionsSideBySide = grid.axis == CenterAxis.HORIZONTAL
+        val sectionRects = splitRect(
+            rect = centerRect,
+            alongWidth = sectionsSideBySide,
+            splitFraction = grid.splitFraction,
+            minimumLengths = grid.sections.map { section -> section.minimumLength(grid.axis, isAlongGridAxis = true) },
+            dividerTarget = DividerTarget.CenterSplit(sectionIndex = null),
+        )
+        grid.sections.forEachIndexed { sectionIndex, section ->
+            val panelRects = splitRect(
+                rect = sectionRects[sectionIndex],
+                alongWidth = !sectionsSideBySide,
+                splitFraction = section.splitFraction,
+                minimumLengths = section.panels.map { panel -> panel.minimumLength(grid.axis.crossAxis) },
+                dividerTarget = DividerTarget.CenterSplit(sectionIndex = sectionIndex),
+            )
+            section.panels.forEachIndexed { panelIndex, panel ->
+                val panelRect = panelRects[panelIndex]
+                centerPanelRects[panel.id] = panelRect
+                panel.group?.let { group -> groupRects[group.id] = panelRect }
+            }
+        }
+    }
+
+    /**
+     * Splits [rect] into one part per entry of [minimumLengths] (one or two) along its width or height. Two parts get
+     * a divider between them; the first takes [splitFraction] of the length without the divider, or half while
+     * center splits are not resizable.
+     */
+    private fun splitRect(
+        rect: DockRect,
+        alongWidth: Boolean,
+        splitFraction: Float,
+        minimumLengths: List<Float>,
+        dividerTarget: DividerTarget,
+    ): List<DockRect> {
+        if (minimumLengths.size < 2) return listOf(rect)
+        val totalLength = if (alongWidth) rect.width else rect.height
+        val availableLength = (totalLength - divider).coerceAtLeast(0f)
+        val appliedFraction = if (metrics.centerSplitsResizable) splitFraction else EVEN_CENTER_SPLIT
+        val partLengths = distributeToFill(
+            desired = listOf(appliedFraction * availableLength, (1f - appliedFraction) * availableLength),
+            minimum = minimumLengths,
+            available = availableLength,
+        )
+        val firstLength = partLengths[0]
+        val secondLength = partLengths[1]
+        dividers += DockDivider(
+            rect = if (alongWidth) {
+                DockRect(rect.left + firstLength, rect.top, divider, rect.height)
+            } else {
+                DockRect(rect.left, rect.top + firstLength, rect.width, divider)
+            },
+            movesHorizontally = alongWidth,
+            target = dividerTarget,
+            isResizable = metrics.centerSplitsResizable,
+        )
+        return if (alongWidth) {
+            listOf(
+                DockRect(rect.left, rect.top, firstLength, rect.height),
+                DockRect(rect.left + firstLength + divider, rect.top, secondLength, rect.height),
+            )
+        } else {
+            listOf(
+                DockRect(rect.left, rect.top, rect.width, firstLength),
+                DockRect(rect.left, rect.top + firstLength + divider, rect.width, secondLength),
+            )
+        }
+    }
 
     fun innerFrameMinimumWidth(): Float = frameMinimumWidth(layout.innerFrame, centerMinimumWidth())
 
