@@ -81,6 +81,18 @@ public sealed interface DockLayoutOperation {
         val splitFraction: Float,
     ) : DockLayoutOperation
 
+    /** Sets every split of the center grid back to even. */
+    public data object ResetCenterSplits : DockLayoutOperation
+
+    /**
+     * Exchanges the places of [dockableId] and [targetDockableId]: each takes the other's tab position in the other's
+     * group, and a group that showed one of them shows the other afterwards. Both must be placed.
+     */
+    public data class SwapDockables(
+        val dockableId: DockableId,
+        val targetDockableId: DockableId,
+    ) : DockLayoutOperation
+
     public data class ResizeLane(
         val laneId: String,
         val extentFraction: Float,
@@ -145,6 +157,8 @@ internal fun DockLayout.applyOperation(
         is DockLayoutOperation.MoveToCenterPanel -> moveToCenterPanel(operation, idGenerator)
         is DockLayoutOperation.ArrangeCenter -> arrangeCenter(operation, capabilities, idGenerator)
         is DockLayoutOperation.ResizeCenterSplit -> resizeCenterSplit(operation)
+        DockLayoutOperation.ResetCenterSplits -> DockOperationResult.Applied(copy(center = center.withEvenSplits()))
+        is DockLayoutOperation.SwapDockables -> swapDockables(operation)
         is DockLayoutOperation.ResizeLane -> resizeLane(operation)
         is DockLayoutOperation.ResizeGroups -> resizeGroups(operation)
     }

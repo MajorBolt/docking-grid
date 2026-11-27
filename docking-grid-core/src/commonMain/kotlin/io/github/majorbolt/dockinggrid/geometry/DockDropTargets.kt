@@ -39,6 +39,9 @@ public sealed interface DropTarget {
     /** An empty center panel, which the dropped dockable fills. */
     public data class EmptyCenterPanel(val panelId: String) : DropTarget
 
+    /** The middle of a center panel: the dropped dockable and the panel's shown [targetDockableId] swap places. */
+    public data class Swap(val targetDockableId: DockableId) : DropTarget
+
     /** The dragged dockable's own lifted slot: dropping there changes nothing. */
     public data object Origin : DropTarget
 }
@@ -55,6 +58,7 @@ internal fun DropTarget.toOperation(dockableId: DockableId, layout: DockLayout):
     DropTarget.Center -> DockLayoutOperation.MoveToCenter(dockableId)
     is DropTarget.SplitCenterPanel -> DockLayoutOperation.SplitCenterPanel(dockableId, panelId, side)
     is DropTarget.EmptyCenterPanel -> DockLayoutOperation.MoveToCenterPanel(dockableId, panelId)
+    is DropTarget.Swap -> DockLayoutOperation.SwapDockables(dockableId, targetDockableId)
     DropTarget.Origin -> null
 }
 
@@ -121,10 +125,13 @@ internal fun emptySideBands(
  * 2. the header of the group under the pointer: add, reorder or merge as a tab;
  * 3. the rest of the empty-side bands;
  * 4. the group body: in a lane, bands along the two edges across the stacking axis create a new lane
- *    ([DockingMetrics.laneInsertionBandShare]) and the rest splits the lane by halves; the body of a center panel
- *    is divided along its diagonals into four triangles, each splitting the panel on that side; where the panel
- *    cannot be split (2×2 limit, or [DockingCapabilities.isCenterGridEnabled] off) the triangle creates an inner
- *    dock on that side;
+ *    ([DockingMetrics.laneInsertionBandShare]) and the rest splits the lane by halves. The body of a center panel
+ *    has an edge zone along each side ([DockingMetrics.centerPanelEdgeShare]) that splits the panel there; where it
+ *    cannot be split (2×2 limit), the zone creates an inner dock at an outer edge of the grid and swaps at an inner
+ *    edge. The rest of the body swaps the dragged dockable with the panel's shown one ([DropTarget.Swap]); a
+ *    dockable that is not placed yet (dragged in from outside) cannot swap. Without
+ *    [DockingCapabilities.isCenterGridEnabled] the body is divided along its diagonals into four triangles, each
+ *    creating an inner dock on that side;
  * 5. an empty center panel, or the empty center placeholder, as a whole.
  * Returns `null` over dividers or outside the content.
  */
@@ -165,9 +172,18 @@ internal fun resolveDropTarget(
     if (laneContext == null) {
         val side = triangleSide(bodyRect, horizontalPosition, verticalPosition) ?: return null
         val panelId = groupHit.centerPanelId
-        // Splitting acts on the layout without the lifted dockable, whose emptied panel then disappears.
-        if (panelId != null && capabilities.isCenterGridEnabled && layout.normalized().center.canSplitPanel(panelId, side)) {
-            return DropTarget.SplitCenterPanel(panelId, side)
+        if (panelId != null && capabilities.isCenterGridEnabled) {
+            return centerPanelTarget(
+                layout = layout,
+                geometry = geometry,
+                panelId = panelId,
+                panelGroup = hitGroup,
+                bodyRect = bodyRect,
+                horizontalPosition = horizontalPosition,
+                verticalPosition = verticalPosition,
+                capabilities = capabilities,
+                metrics = metrics,
+            )
         }
         val frameLevel = if (capabilities.isFrameAllowed(DockFrameLevel.INNER)) DockFrameLevel.INNER else DockFrameLevel.OUTER
         return DropTarget.NewLane(frameLevel, side, laneIndex = layout.frame(frameLevel).lanes(side).count { lane -> lane.isOccupied })
@@ -190,6 +206,47 @@ internal fun resolveDropTarget(
 }
 
 private val DockLane.isOccupied: Boolean get() = groups.any { group -> group.dockableIds.isNotEmpty() }
+
+/**
+ * The target in the body of a center panel; see [resolveDropTarget]. [layout] is the lifted layout: when the dragged
+ * dockable came from a center panel, it is already missing from [panelGroup].
+ */
+private fun centerPanelTarget(
+    layout: DockLayout,
+    geometry: DockGeometry,
+    panelId: String,
+    panelGroup: TabGroup,
+    bodyRect: DockRect,
+    horizontalPosition: Float,
+    verticalPosition: Float,
+    capabilities: DockingCapabilities,
+    metrics: DockingMetrics,
+): DropTarget? {
+    val side = triangleSide(bodyRect, horizontalPosition, verticalPosition) ?: return null
+    val distanceToSide = when (side) {
+        DockSide.LEFT -> (horizontalPosition - bodyRect.left) / bodyRect.width
+        DockSide.RIGHT -> (bodyRect.right - horizontalPosition) / bodyRect.width
+        DockSide.TOP -> (verticalPosition - bodyRect.top) / bodyRect.height
+        DockSide.BOTTOM -> (bodyRect.bottom - verticalPosition) / bodyRect.height
+    }
+    val swapTarget = DropTarget.Swap(panelGroup.selectedDockableId)
+    if (distanceToSide >= metrics.centerPanelEdgeShare) return swapTarget
+    // Splitting acts on the layout without the lifted dockable, whose emptied panel then disappears.
+    if (layout.normalized().center.canSplitPanel(panelId, side)) return DropTarget.SplitCenterPanel(panelId, side)
+    val panelRect = geometry.centerPanelRects[panelId] ?: return swapTarget
+    val centerRect = geometry.centerRect
+    val isOuterEdge = when (side) {
+        DockSide.LEFT -> panelRect.left <= centerRect.left + EDGE_TOLERANCE_DP
+        DockSide.RIGHT -> panelRect.right >= centerRect.right - EDGE_TOLERANCE_DP
+        DockSide.TOP -> panelRect.top <= centerRect.top + EDGE_TOLERANCE_DP
+        DockSide.BOTTOM -> panelRect.bottom >= centerRect.bottom - EDGE_TOLERANCE_DP
+    }
+    if (!isOuterEdge) return swapTarget
+    val frameLevel = if (capabilities.isFrameAllowed(DockFrameLevel.INNER)) DockFrameLevel.INNER else DockFrameLevel.OUTER
+    return DropTarget.NewLane(frameLevel, side, laneIndex = layout.frame(frameLevel).lanes(side).count { lane -> lane.isOccupied })
+}
+
+private const val EDGE_TOLERANCE_DP = 0.5f
 
 /**
  * The group under the pointer, or an empty center panel or the empty center ([group] `null`); [laneContext] is `null`

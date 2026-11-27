@@ -206,6 +206,37 @@ class CenterGridOperationsTest {
     }
 
     @Test
+    fun resettingMakesEverySplitEven() {
+        val resized = grid2x2.applyOrFail(DockLayoutOperation.ResizeCenterSplit(sectionIndex = null, splitFraction = 0.3f))
+            .applyOrFail(DockLayoutOperation.ResizeCenterSplit(sectionIndex = 1, splitFraction = 0.7f))
+        assertTrue(resized.center.hasUnevenSplits)
+
+        val reset = resized.applyOrFail(DockLayoutOperation.ResetCenterSplits)
+
+        assertFalse(reset.center.hasUnevenSplits)
+        assertEquals(grid2x2.center, reset.center)
+    }
+
+    @Test
+    fun swappingExchangesTwoDockablesWhereverTheyAre() {
+        val withTabsAndLane = grid2x2.copy(
+            outerFrame = DockFrame(mapOf(DockSide.RIGHT to listOf(DockLane("right", 0.25f, listOf(TabGroup("mixer", listOf(AudioMixer))))))),
+        ).applyOrFail(DockLayoutOperation.MoveToCenterPanel(GameControls, "a"))
+
+        val swapped = withTabsAndLane.applyOrFail(DockLayoutOperation.SwapDockables(AudioMixer, Players))
+
+        assertEquals(listOf(AudioMixer), swapped.center.findPanel("c")?.group?.dockableIds)
+        assertEquals(listOf(Players), swapped.findGroup("mixer")?.dockableIds)
+
+        val swappedTab = withTabsAndLane.applyOrFail(DockLayoutOperation.SwapDockables(GameControls, StreamInfo))
+        assertEquals(listOf(Scenes, StreamInfo), swappedTab.center.findPanel("a")?.group?.dockableIds, "The tab keeps its position")
+        assertEquals(StreamInfo, swappedTab.center.findPanel("a")?.group?.selectedDockableId)
+        assertEquals(listOf(GameControls), swappedTab.center.findPanel("d")?.group?.dockableIds)
+
+        assertEquals(DockRejectionReason.UNKNOWN_DOCKABLE, grid2x2.rejectionOf(DockLayoutOperation.SwapDockables(AudioMixer, Scenes)), "Not placed")
+    }
+
+    @Test
     fun malformedGridsAreRepaired() {
         val malformed = DockLayout(
             center = CenterGrid(

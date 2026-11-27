@@ -51,10 +51,16 @@ public data class DockingMetrics(
     /** Minimum size of the empty-center placeholder and of empty center panels. 0 means they may collapse completely. */
     val emptyCenterMinimumDp: Float = 0f,
     /**
-     * Whether the dividers between center panels can be dragged. When `false`, every center split is shown evenly
-     * (the stored split fractions are kept, only not applied) and the dividers are not resizable.
+     * Whether the dividers between center panels can be dragged. When `false`, they stay where they are: the stored
+     * splits are shown, but the dividers are not resizable.
      */
     val centerSplitsResizable: Boolean = true,
+    /**
+     * Share of a center panel's body, along each of its four edges, that splits the panel on that side (or, at an
+     * outer edge of a full grid, creates an inner dock). The rest of the body swaps the dragged dockable with the
+     * panel's shown one.
+     */
+    val centerPanelEdgeShare: Float = 0.25f,
 )
 
 /** What dragging a divider changes. */
@@ -173,7 +179,6 @@ public fun DockLayout.fitsInto(
 }
 
 private const val SIZE_TOLERANCE = 0.01f
-private const val EVEN_CENTER_SPLIT = 0.5f
 
 private class GeometryBuilder(
     private val layout: DockLayout,
@@ -257,8 +262,7 @@ private class GeometryBuilder(
 
     /**
      * Splits [rect] into one part per entry of [minimumLengths] (one or two) along its width or height. Two parts get
-     * a divider between them; the first takes [splitFraction] of the length without the divider, or half while
-     * center splits are not resizable.
+     * a divider between them; the first takes [splitFraction] of the length without the divider.
      */
     private fun splitRect(
         rect: DockRect,
@@ -270,9 +274,8 @@ private class GeometryBuilder(
         if (minimumLengths.size < 2) return listOf(rect)
         val totalLength = if (alongWidth) rect.width else rect.height
         val availableLength = (totalLength - divider).coerceAtLeast(0f)
-        val appliedFraction = if (metrics.centerSplitsResizable) splitFraction else EVEN_CENTER_SPLIT
         val partLengths = distributeToFill(
-            desired = listOf(appliedFraction * availableLength, (1f - appliedFraction) * availableLength),
+            desired = listOf(splitFraction * availableLength, (1f - splitFraction) * availableLength),
             minimum = minimumLengths,
             available = availableLength,
         )

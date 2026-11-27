@@ -13,6 +13,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.platform.testTag
+import io.github.majorbolt.dockinggrid.CenterPreset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -71,8 +76,9 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
 }
 
 /**
- * Title bar of the selected dockable with an options menu that can close it. In a center panel the menu also offers
- * the center arrangements ([MaterialCenterLayoutMenuSection]).
+ * Title bar of the selected dockable with an options menu that can close it. In a center panel the header also shows
+ * the current center arrangement as a button that opens the arrangements ([MaterialCenterLayoutButton]), and the
+ * options menu can lock the center dividers and reset them.
  *
  * @param menuItems further entries of the options menu, shown below "Close", for the selected dockable. Use
  *   [MaterialDockMenuItem] for them and call `dismissMenu` when an entry was chosen.
@@ -103,42 +109,61 @@ public fun DockGroupScope.MaterialDockHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Box {
-            TooltipBox(
-                positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                tooltip = { PlainTooltip { Text(strings.options) } },
-                state = tooltipState,
-            ) {
-                IconButton(onClick = { isMenuExpanded = true }) {
-                    Text(
-                        text = "⋮",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val currentCenterPreset = centerPreset
+            if (currentCenterPreset != null) {
+                MaterialCenterLayoutButton(currentPreset = currentCenterPreset, onSelectPreset = { preset -> arrangeCenter(preset) })
             }
+            Box {
+                TooltipBox(
+                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                    tooltip = { PlainTooltip { Text(strings.options) } },
+                    state = tooltipState,
+                ) {
+                    IconButton(onClick = { isMenuExpanded = true }) {
+                        Text(
+                            text = "⋮",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
 
-            DropdownMenu(
-                expanded = isMenuExpanded,
-                onDismissRequest = { isMenuExpanded = false },
-            ) {
-                MaterialDockMenuItem(
-                    text = strings.close,
-                    onClick = {
-                        isMenuExpanded = false
-                        close(selectedDockableId)
-                    },
-                )
-                menuItems(selectedDockableId) { isMenuExpanded = false }
-                val currentCenterPreset = centerPreset
-                if (currentCenterPreset != null) {
-                    MaterialCenterLayoutMenuSection(
-                        currentPreset = currentCenterPreset,
-                        onSelectPreset = { preset ->
+                DropdownMenu(
+                    expanded = isMenuExpanded,
+                    onDismissRequest = { isMenuExpanded = false },
+                ) {
+                    MaterialDockMenuItem(
+                        text = strings.close,
+                        onClick = {
                             isMenuExpanded = false
-                            arrangeCenter(preset)
+                            close(selectedDockableId)
                         },
                     )
+                    menuItems(selectedDockableId) { isMenuExpanded = false }
+                    if (currentCenterPreset != null && currentCenterPreset != CenterPreset.SINGLE) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                        if (canChangeCenterSplitsResizable) {
+                            MaterialDockMenuItem(
+                                text = strings.lockCenterDividers,
+                                isChecked = !centerSplitsResizable,
+                                onClick = {
+                                    isMenuExpanded = false
+                                    setCenterSplitsResizable(!centerSplitsResizable)
+                                },
+                                modifier = Modifier.testTag(MaterialCenterLayoutTestTags.LOCK_DIVIDERS),
+                            )
+                        }
+                        MaterialDockMenuItem(
+                            text = strings.resetCenterDividers,
+                            enabled = hasUnevenCenterSplits,
+                            onClick = {
+                                isMenuExpanded = false
+                                resetCenterSplits()
+                            },
+                            modifier = Modifier.testTag(MaterialCenterLayoutTestTags.RESET_DIVIDERS),
+                        )
+                    }
                 }
             }
         }
@@ -164,6 +189,7 @@ public fun MaterialDockMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    isChecked: Boolean? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -179,16 +205,33 @@ public fun MaterialDockMenuItem(
             .clip(DOCK_MENU_ITEM_SHAPE)
             .background(if (isHighlighted) colorScheme.primary.copy(alpha = DOCK_MENU_HIGHLIGHT_ALPHA) else Color.Transparent)
             .hoverable(interactionSource, enabled = enabled)
-            .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .then(
+                if (isChecked == null) {
+                    Modifier.clickable(interactionSource = interactionSource, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier.toggleable(
+                        value = isChecked,
+                        interactionSource = interactionSource,
+                        indication = null,
+                        enabled = enabled,
+                        role = Role.Checkbox,
+                        onValueChange = { onClick() },
+                    )
+                },
+            )
             .padding(horizontal = 8.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (enabled) colorScheme.onSurface else colorScheme.onSurface.copy(alpha = DOCK_MENU_DISABLED_ALPHA),
-            maxLines = 1,
-        )
+        val textColor = if (enabled) colorScheme.onSurface else colorScheme.onSurface.copy(alpha = DOCK_MENU_DISABLED_ALPHA)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isChecked != null) {
+                // A fixed slot, so checked and unchecked entries line up.
+                Box(modifier = Modifier.width(16.dp), contentAlignment = Alignment.CenterStart) {
+                    if (isChecked) Text(text = "✓", style = MaterialTheme.typography.bodySmall, color = colorScheme.primary)
+                }
+            }
+            Text(text = text, style = MaterialTheme.typography.bodySmall, color = textColor, maxLines = 1)
+        }
     }
 }
 

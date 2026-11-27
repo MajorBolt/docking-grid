@@ -87,19 +87,19 @@ class CenterGridGeometryTest {
     }
 
     @Test
-    fun storedSplitsAreAppliedOnlyWhileCenterSplitsAreResizable() {
+    fun lockedCenterSplitsKeepTheirPositionButCannotBeDragged() {
         val resizedLayout = grid2x2(columnSplit = 0.25f, secondColumnSplit = 0.75f)
 
         val resized = geometryOf(resizedLayout)
         assertEquals(398f, resized.centerPanelRects.getValue("a").width)
         assertEquals(669f, resized.centerPanelRects.getValue("b").height)
 
-        val notResizable = DockingMetrics(centerSplitsResizable = false)
-        val even = geometryOf(resizedLayout, notResizable)
-        assertEquals(geometryOf(grid2x2()).centerPanelRects, even.centerPanelRects)
-        assertTrue(even.dividers.filter { divider -> divider.target is DividerTarget.CenterSplit }.none { divider -> divider.isResizable })
-        val mainDivider = even.dividers.first { divider -> divider.target == DividerTarget.CenterSplit(null) }
-        assertNull(resizeOperationFor(resizedLayout, mainDivider, 100f, contentSize, TestDockables.catalog, notResizable))
+        val locked = DockingMetrics(centerSplitsResizable = false)
+        val lockedGeometry = geometryOf(resizedLayout, locked)
+        assertEquals(resized.centerPanelRects, lockedGeometry.centerPanelRects)
+        assertTrue(lockedGeometry.dividers.filter { divider -> divider.target is DividerTarget.CenterSplit }.none { divider -> divider.isResizable })
+        val mainDivider = lockedGeometry.dividers.first { divider -> divider.target == DividerTarget.CenterSplit(null) }
+        assertNull(resizeOperationFor(resizedLayout, mainDivider, 100f, contentSize, TestDockables.catalog, locked))
     }
 
     @Test
@@ -144,6 +144,50 @@ class CenterGridGeometryTest {
         )
         assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.TOP, 0), targetAt(grid2x2(), 398f, 100f), "The 2×2 grid is full")
         assertNull(targetAt(grid2x2(), 800f, 200f), "On the divider between the columns")
+    }
+
+    @Test
+    fun theMiddleOfACenterPanelSwapsAndInnerEdgesOfAFullDirectionSwapToo() {
+        // The middle of a (body 0..796 × 36..446).
+        assertEquals(DropTarget.Swap(Scenes), targetAt(grid2x2(), 398f, 240f))
+        // The bottom edge of a lies inside the grid (c is below it): no split, no lane below the grid.
+        assertEquals(DropTarget.Swap(Scenes), targetAt(grid2x2(), 398f, 430f))
+        // The left edge of a is an outer edge of the full grid: an inner dock as before.
+        assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.LEFT, 0), targetAt(grid2x2(), 60f, 240f))
+
+        val stacked = DockLayout(
+            center = CenterGrid(
+                axis = CenterAxis.VERTICAL,
+                sections = listOf(CenterSection(listOf(panel("a", Scenes))), CenterSection(listOf(panel("b", GameControls)))),
+            ),
+        )
+        // Stacked, a is 0..1600 × 0..446: its bottom edge faces b, so it swaps instead of creating a bottom lane.
+        assertEquals(DropTarget.Swap(Scenes), targetAt(stacked, 800f, 430f))
+        assertEquals(DropTarget.SplitCenterPanel("a", DockSide.LEFT), targetAt(stacked, 100f, 240f), "Across the axis it still splits")
+    }
+
+    @Test
+    fun droppingInTheMiddleSwapsTheTwoPanelsInThePreview() {
+        val layout = grid2x2()
+        val dragBase = liftedDragBase(layout, Scenes, contentSize, TestDockables.catalog)
+
+        // The middle of d (804..1600 × 454..900, body from 490).
+        val preview = assertNotNull(resolveDropPreview(DockProfile(layout), dragBase, 1202f, 700f, desktop, landscape, TestDockables.catalog))
+
+        assertEquals(DropTarget.Swap(StreamInfo), preview.target)
+        assertEquals(DockLayoutOperation.SwapDockables(Scenes, StreamInfo), preview.operation)
+        assertEquals(listOf(StreamInfo), preview.layout.center.findPanel("a")?.group?.dockableIds)
+        assertEquals(listOf(Scenes), preview.layout.center.findPanel("d")?.group?.dockableIds)
+        assertEquals(geometryOf(layout).centerPanelRects["d"], preview.highlightRect, "The grid itself does not move")
+    }
+
+    @Test
+    fun aDockableFromOutsideTheHostCannotSwap() {
+        val layout = grid2x2()
+        // AudioMixer is not placed: dragged in from a toolbar, for example.
+        val dragBase = liftedDragBase(layout, AudioMixer, contentSize, TestDockables.catalog)
+
+        assertNull(resolveDropPreview(DockProfile(layout), dragBase, 1202f, 700f, desktop, landscape, TestDockables.catalog))
     }
 
     @Test

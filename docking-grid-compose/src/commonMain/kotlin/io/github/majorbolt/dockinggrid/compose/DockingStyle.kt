@@ -70,6 +70,8 @@ public data class DockingColors(
  * @property emptyCenterPanel shown in an empty center panel that a [CenterPreset] created.
  * @property centerLayout caption of the center arrangements in a center panel's options menu.
  * @property centerPresetTitles name of each [CenterPreset]; a missing entry shows the preset's name.
+ * @property lockCenterDividers label of the option that locks the dividers of the center grid in place.
+ * @property resetCenterDividers label of the action that makes every split of the center grid even.
  * @property liftedSlot shown in the place of a dragged dockable while the pointer is over no other target.
  * @property close label of the action that closes a dockable.
  * @property options label of the menu with further actions of a dockable, where the chrome has one.
@@ -80,6 +82,8 @@ public data class DockingStrings(
     val emptyCenterPanel: String = "Drop a window here",
     val centerLayout: String = "Center layout",
     val centerPresetTitles: Map<CenterPreset, String> = DEFAULT_CENTER_PRESET_TITLES,
+    val lockCenterDividers: String = "Lock dividers",
+    val resetCenterDividers: String = "Reset dividers",
     val liftedSlot: String = "Drop here to keep it in place",
     val close: String = "Close",
     val options: String = "Options",

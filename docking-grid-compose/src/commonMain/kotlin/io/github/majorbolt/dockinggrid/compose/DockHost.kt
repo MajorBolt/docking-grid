@@ -49,6 +49,7 @@ import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.DockingCapabilities
 import io.github.majorbolt.dockinggrid.LayoutOrientation
 import io.github.majorbolt.dockinggrid.geometry.DividerTarget
+import io.github.majorbolt.dockinggrid.hasUnevenSplits
 import io.github.majorbolt.dockinggrid.matchingPreset
 import io.github.majorbolt.dockinggrid.geometry.DockRect
 import io.github.majorbolt.dockinggrid.geometry.DockSize
@@ -91,6 +92,8 @@ public object DockHostTestTags {
  * @param placeholder the empty center, an empty center panel and the slot of a dragged dockable, with the text to show.
  * @param dragLabel follows the pointer while a dockable is dragged, with its title.
  * @param dragController lets code outside the host drag dockables over it; see [DockDragController].
+ * @param onCenterSplitsResizableChange when set, the chrome of center panels can lock and unlock the center dividers
+ *   ([DockGroupScope.setCenterSplitsResizable]); the caller stores the choice and passes it back in [metrics].
  * @param content renders the content of one dockable. Its composition is kept while the dockable moves.
  */
 @Composable
@@ -110,6 +113,7 @@ public fun DockHost(
     placeholder: @Composable (text: String) -> Unit = { text -> BasicDockPlaceholder(text) },
     dragLabel: @Composable (title: String) -> Unit = { title -> BasicDockDragLabel(title) },
     dragController: DockDragController? = null,
+    onCenterSplitsResizableChange: ((Boolean) -> Unit)? = null,
     content: @Composable (DockableId) -> Unit,
 ) {
     CompositionLocalProvider(LocalDockingStyle provides style) {
@@ -318,6 +322,10 @@ public fun DockHost(
                                 centerPreset = profile.layout.center.matchingPreset
                                     ?.takeIf { capabilities.isCenterGridEnabled && displayedLayout.center.findPanelOf(group.id) != null },
                                 onArrangeCenter = { preset -> onApplyOperation(DockLayoutOperation.ArrangeCenter(preset)) },
+                                centerSplitsResizable = metrics.centerSplitsResizable,
+                                onCenterSplitsResizableChange = onCenterSplitsResizableChange,
+                                hasUnevenCenterSplits = profile.layout.center.hasUnevenSplits,
+                                onResetCenterSplits = { onApplyOperation(DockLayoutOperation.ResetCenterSplits) },
                                 tabStrip = tabStrip,
                                 header = header,
                                 content = { dockableId -> contentOf(dockableId)() },

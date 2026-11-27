@@ -135,6 +135,34 @@ internal fun DockLayout.arrangeCenter(
     return DockOperationResult.Applied(copy(center = operation.preset.arrange(panels)).normalized())
 }
 
+/** This grid with every split even. */
+internal fun CenterGrid.withEvenSplits(): CenterGrid = copy(
+    splitFraction = DEFAULT_CENTER_SPLIT_FRACTION,
+    sections = sections.map { section -> section.copy(splitFraction = DEFAULT_CENTER_SPLIT_FRACTION) },
+)
+
+/** `true` when a split of this grid is not even, so [DockLayoutOperation.ResetCenterSplits] would change it. */
+public val CenterGrid.hasUnevenSplits: Boolean
+    get() = this != withEvenSplits()
+
+internal fun DockLayout.swapDockables(operation: DockLayoutOperation.SwapDockables): DockOperationResult {
+    val dockableId = operation.dockableId
+    val targetDockableId = operation.targetDockableId
+    if (dockableId == targetDockableId || !contains(dockableId) || !contains(targetDockableId)) {
+        return DockOperationResult.Rejected(DockRejectionReason.UNKNOWN_DOCKABLE)
+    }
+    fun DockableId.swapped(): DockableId = when (this) {
+        dockableId -> targetDockableId
+        targetDockableId -> dockableId
+        else -> this
+    }
+    return DockOperationResult.Applied(
+        mapGroups { group ->
+            group.copy(dockableIds = group.dockableIds.map { id -> id.swapped() }, selectedDockableId = group.selectedDockableId.swapped())
+        }.normalized(),
+    )
+}
+
 internal fun DockLayout.resizeCenterSplit(operation: DockLayoutOperation.ResizeCenterSplit): DockOperationResult {
     val fraction = operation.splitFraction
     if (!fraction.isFinite() || fraction <= 0f || fraction >= 1f) return DockOperationResult.Rejected(DockRejectionReason.INVALID_SIZE)

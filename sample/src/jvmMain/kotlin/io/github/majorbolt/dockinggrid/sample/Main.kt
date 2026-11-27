@@ -131,6 +131,7 @@ fun main() {
                             onCloseDockable = { dockableId -> commit(dockState.closingDockable(dockableId)) },
                             style = style,
                             metrics = DockingMetrics(centerSplitsResizable = centerSplitsResizable),
+                            onCenterSplitsResizableChange = { resizable -> centerSplitsResizable = resizable },
                             divider = { state -> ThinDivider(state) },
                             modifier = Modifier.fillMaxSize(),
                         ) { dockableId ->

@@ -164,10 +164,12 @@ private val DockLayoutOperation.movedDockableId: DockableId?
         is DockLayoutOperation.MoveToCenter -> dockableId
         is DockLayoutOperation.SplitCenterPanel -> dockableId
         is DockLayoutOperation.MoveToCenterPanel -> dockableId
+        is DockLayoutOperation.SwapDockables -> dockableId
         is DockLayoutOperation.ResizeLane,
         is DockLayoutOperation.ResizeGroups,
         is DockLayoutOperation.ArrangeCenter,
         is DockLayoutOperation.ResizeCenterSplit,
+        DockLayoutOperation.ResetCenterSplits,
         -> null
     }
 

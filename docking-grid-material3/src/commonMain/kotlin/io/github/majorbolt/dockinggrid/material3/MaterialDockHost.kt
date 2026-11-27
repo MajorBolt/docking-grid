@@ -20,6 +20,8 @@ import io.github.majorbolt.dockinggrid.geometry.DockingMetrics
  * to combine the Material pieces ([MaterialDockTabStrip], [MaterialDockHeader], ...) with own slots.
  *
  * @param dockableMenuItems further entries of a group's options menu, below "Close"; see [MaterialDockHeader].
+ * @param onCenterSplitsResizableChange when set, the options menu of a center panel offers "Lock dividers"; see
+ *   [DockHost].
  */
 @Composable
 public fun MaterialDockHost(
@@ -35,6 +37,7 @@ public fun MaterialDockHost(
     divider: @Composable (DockDividerState) -> Unit = { state -> BasicDockDivider(state) },
     dragController: DockDragController? = null,
     dockableMenuItems: @Composable (dockableId: DockableId, dismissMenu: () -> Unit) -> Unit = { _, _ -> },
+    onCenterSplitsResizableChange: ((Boolean) -> Unit)? = null,
     content: @Composable (DockableId) -> Unit,
 ) {
     DockHost(
@@ -53,6 +56,7 @@ public fun MaterialDockHost(
         placeholder = { text -> MaterialDockPlaceholder(text) },
         dragLabel = { title -> MaterialDockDragLabel(title) },
         dragController = dragController,
+        onCenterSplitsResizableChange = onCenterSplitsResizableChange,
         content = content,
     )
 }

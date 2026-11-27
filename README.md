@@ -191,13 +191,19 @@ DockHost(
 
 The center is a grid of up to 2×2 panels, each a tab group: one panel, two side by side or stacked, three with one
 full-length panel, or four. Dropping a dockable on a side of a center panel splits it; a panel that loses its last
-dockable disappears. `DockLayoutOperation.ArrangeCenter(CenterPreset.GRID_2X2)` (and the other presets) rearranges
-the center without closing anything; panels it adds stay empty until something is dropped in. The Material options
-menu of a center panel offers the presets.
+dockable disappears. Dropping in the middle of a center panel swaps the two dockables; dropping on its header adds
+a tab. `DockLayoutOperation.ArrangeCenter(CenterPreset.GRID_2X2)` (and the other presets) rearranges the center
+without closing anything; panels it adds stay empty until something is dropped in. In Material chrome, the header of
+a center panel shows the current arrangement as a button that opens the presets, and its options menu can lock and
+reset the dividers.
 
 ```kotlin
 onApplyOperation(DockLayoutOperation.ArrangeCenter(CenterPreset.GRID_2X2))   // for example from your own menu
-MaterialDockHost(/* … */, metrics = DockingMetrics(centerSplitsResizable = false))  // always even splits
+MaterialDockHost(
+    /* … */,
+    metrics = DockingMetrics(centerSplitsResizable = dividersUnlocked),      // false: the dividers stay where they are
+    onCenterSplitsResizableChange = { unlocked -> dividersUnlocked = unlocked },  // offers "Lock dividers"
+)
 ```
 
 Set `DockingCapabilities(isCenterGridEnabled = false)` to keep a single center group.

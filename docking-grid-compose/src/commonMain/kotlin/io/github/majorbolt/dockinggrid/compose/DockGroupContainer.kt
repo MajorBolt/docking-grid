@@ -50,6 +50,21 @@ public interface DockGroupScope {
     /** Rearranges the center as [preset]; the host commits this as a layout change. Only for center panels. */
     public fun arrangeCenter(preset: CenterPreset) {}
 
+    /** Whether the dividers of the center grid can be dragged ([io.github.majorbolt.dockinggrid.geometry.DockingMetrics.centerSplitsResizable]). */
+    public val centerSplitsResizable: Boolean get() = true
+
+    /** `true` when the host lets the chrome lock and unlock the center dividers with [setCenterSplitsResizable]. */
+    public val canChangeCenterSplitsResizable: Boolean get() = false
+
+    /** Asks the host to lock (`false`) or unlock the center dividers; see [canChangeCenterSplitsResizable]. */
+    public fun setCenterSplitsResizable(resizable: Boolean) {}
+
+    /** `true` when a split of the center grid is not even, so [resetCenterSplits] would change it. */
+    public val hasUnevenCenterSplits: Boolean get() = false
+
+    /** Sets every center split back to even; the host commits this as a layout change. Only for center panels. */
+    public fun resetCenterSplits() {}
+
     /**
      * Marks the tab of [dockableId] in a tab strip. Required on every tab: it starts dragging the dockable from the
      * tab and reports the tab's bounds, from which the insertion position of a dropped tab is calculated. A tab
@@ -91,6 +106,10 @@ internal fun DockGroupContainer(
     onHeaderMeasured: (HeaderMeasurement) -> Unit,
     centerPreset: CenterPreset?,
     onArrangeCenter: (CenterPreset) -> Unit,
+    centerSplitsResizable: Boolean,
+    onCenterSplitsResizableChange: ((Boolean) -> Unit)?,
+    hasUnevenCenterSplits: Boolean,
+    onResetCenterSplits: () -> Unit,
     tabStrip: @Composable DockGroupScope.() -> Unit,
     header: @Composable DockGroupScope.() -> Unit,
     content: @Composable (DockableId) -> Unit,
@@ -137,6 +156,10 @@ internal fun DockGroupContainer(
         dragHandleModifier = dragHandleModifier,
         centerPreset = centerPreset,
         onArrangeCenter = onArrangeCenter,
+        centerSplitsResizable = centerSplitsResizable,
+        onCenterSplitsResizableChange = onCenterSplitsResizableChange,
+        hasUnevenCenterSplits = hasUnevenCenterSplits,
+        onResetCenterSplits = onResetCenterSplits,
         onTabPositioned = { dockableId, coordinates ->
             measurement.tabCoordinates[dockableId] = coordinates
             reportHeader()
@@ -193,9 +216,21 @@ private class GroupScope(
     private val dragHandleModifier: (DockableId) -> Modifier,
     override val centerPreset: CenterPreset?,
     private val onArrangeCenter: (CenterPreset) -> Unit,
+    override val centerSplitsResizable: Boolean,
+    private val onCenterSplitsResizableChange: ((Boolean) -> Unit)?,
+    override val hasUnevenCenterSplits: Boolean,
+    private val onResetCenterSplits: () -> Unit,
     private val onTabPositioned: (DockableId, LayoutCoordinates) -> Unit,
 ) : DockGroupScope {
     override fun arrangeCenter(preset: CenterPreset) = onArrangeCenter(preset)
+
+    override val canChangeCenterSplitsResizable: Boolean get() = onCenterSplitsResizableChange != null
+
+    override fun setCenterSplitsResizable(resizable: Boolean) {
+        onCenterSplitsResizableChange?.invoke(resizable)
+    }
+
+    override fun resetCenterSplits() = onResetCenterSplits()
 
     override fun titleOf(dockableId: DockableId): String = titleProvider(dockableId)
 

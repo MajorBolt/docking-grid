@@ -241,7 +241,8 @@ class DockDropTargetsTest {
 
         assertEquals(DropTarget.NewLane(DockFrameLevel.INNER, DockSide.LEFT, 0), targetAt(420f, 450f), "inner band")
         assertEquals(DropTarget.SplitCenterPanel(centerPanelId, DockSide.LEFT), targetAt(450f, 450f), "left triangle")
-        assertEquals(DropTarget.SplitCenterPanel(centerPanelId, DockSide.TOP), targetAt(800f, 420f), "top triangle")
+        assertEquals(DropTarget.SplitCenterPanel(centerPanelId, DockSide.TOP), targetAt(800f, 100f), "top edge")
+        assertEquals(DropTarget.Swap(GameControls), targetAt(800f, 420f), "middle")
         assertEquals(DropTarget.Tab(centerGroupId, 1), targetAt(900f, 20f), "header")
     }
 
