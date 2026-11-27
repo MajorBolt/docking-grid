@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.rotate
 import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.compose.CenterGridScope
 import io.github.majorbolt.dockinggrid.compose.DockGroupScope
+import io.github.majorbolt.dockinggrid.compose.KeepHeaderVisible
 import io.github.majorbolt.dockinggrid.compose.LocalDockingStyle
 
 /**
@@ -131,6 +132,8 @@ public fun CenterGridScope.MaterialCenterHeader(modifier: Modifier = Modifier) {
     val strings = LocalDockingStyle.current.strings
     val colorScheme = MaterialTheme.colorScheme
     var isMenuExpanded by remember { mutableStateOf(false) }
+    // The menu lies outside an auto-hidden header; the header must not slide out and take it along.
+    KeepHeaderVisible(isHeld = isMenuExpanded)
     Row(
         modifier = modifier
             .fillMaxSize()

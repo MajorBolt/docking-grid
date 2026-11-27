@@ -21,6 +21,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -288,9 +293,30 @@ internal fun DockGroupContainer(
     }
 }
 
+/** How many parts of an auto-hidden header want it to stay shown, for example an open menu; see [KeepHeaderVisible]. */
+internal class HeaderVisibilityHolds {
+    var count by mutableIntStateOf(0)
+}
+
+internal val LocalHeaderVisibilityHolds = staticCompositionLocalOf<HeaderVisibilityHolds?> { null }
+
+/**
+ * Keeps the enclosing auto-hidden header shown while [isHeld], although the pointer leaves it. Call it from chrome
+ * that opens a popup from a header (a menu, a picker): the popup lies outside the header, so without it the header
+ * would slide out and take the open popup along. Has no effect outside an auto-hidden header.
+ */
+@Composable
+public fun KeepHeaderVisible(isHeld: Boolean) {
+    val holds = LocalHeaderVisibilityHolds.current ?: return
+    DisposableEffect(holds, isHeld) {
+        if (isHeld) holds.count++
+        onDispose { if (isHeld) holds.count-- }
+    }
+}
+
 /**
  * A header that lies over the content: hidden except for a thin hover zone along its edge, it slides in while the
- * pointer is over the zone or the header, and while [isForcedVisible].
+ * pointer is over the zone or the header, while [isForcedVisible], and while a part of it holds it ([KeepHeaderVisible]).
  */
 @Composable
 internal fun AutoHidingHeader(
@@ -302,7 +328,8 @@ internal fun AutoHidingHeader(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val isVisible = isHovered || isForcedVisible
+    val holds = remember { HeaderVisibilityHolds() }
+    val isVisible = isHovered || isForcedVisible || holds.count > 0
     val animation = tween<androidx.compose.ui.unit.IntOffset>(durationMillis = AUTO_HIDE_ANIMATION_MILLIS)
     Box(
         modifier = modifier
@@ -322,7 +349,9 @@ internal fun AutoHidingHeader(
                 else -> slideOutHorizontally(animation) { width -> -width }
             },
         ) {
-            header()
+            CompositionLocalProvider(LocalHeaderVisibilityHolds provides holds) {
+                header()
+            }
         }
     }
 }

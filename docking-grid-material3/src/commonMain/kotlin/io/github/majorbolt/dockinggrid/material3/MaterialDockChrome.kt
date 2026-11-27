@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.majorbolt.dockinggrid.DockableId
 import io.github.majorbolt.dockinggrid.compose.DockGroupScope
+import io.github.majorbolt.dockinggrid.compose.KeepHeaderVisible
 import io.github.majorbolt.dockinggrid.compose.LocalDockingStyle
 
 /** Material scrollable tab row with a secondary indicator under the selected tab. */
@@ -128,6 +129,8 @@ public fun DockGroupScope.MaterialDockOptionsButton(
     val strings = LocalDockingStyle.current.strings
     val selectedDockableId = group.selectedDockableId
     var isMenuExpanded by remember { mutableStateOf(false) }
+    // The menu lies outside an auto-hidden header; the header must not slide out and take it along.
+    KeepHeaderVisible(isHeld = isMenuExpanded)
     Box(modifier = modifier) {
         TooltipBox(
             positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),

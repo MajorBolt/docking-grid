@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.majorbolt.dockinggrid.CenterPreset
+import io.github.majorbolt.dockinggrid.compose.KeepHeaderVisible
 import io.github.majorbolt.dockinggrid.compose.LocalDockingStyle
 import io.github.majorbolt.dockinggrid.compose.titleOf
 
@@ -70,6 +71,8 @@ public fun MaterialCenterLayoutButton(
 ) {
     val strings = LocalDockingStyle.current.strings
     var isPickerExpanded by remember { mutableStateOf(false) }
+    // The menu lies outside an auto-hidden header; the header must not slide out and take it along.
+    KeepHeaderVisible(isHeld = isPickerExpanded)
     Box(modifier = modifier) {
         TooltipBox(
             positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),

@@ -139,6 +139,31 @@ class MaterialHeaderStylesUiTest {
     }
 
     @Test
+    fun anOpenMenuKeepsAnAutoHiddenHeaderShown() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        // Regression: the header slid out as soon as the pointer moved to its menu, and took the open menu along.
+        val state = stateWithoutRight.withHeaderStyle(Scenes, GroupHeaderStyle(autoHides = true))
+        val recorder = setDockHost(state)
+        val groupId = state.groupIdOf(Scenes)
+        val headerTag = DockHostTestTags.autoHidingHeader(groupId)
+        fun headerHeight() = onNodeWithTag(headerTag).getUnclippedBoundsInRoot().let { bounds -> bounds.bottom - bounds.top }
+
+        onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(200f, 6f)) }
+        waitForIdle()
+        onNodeWithTag(MaterialDockTestTags.options(groupId)).performClick()
+        waitForIdle()
+        onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(200f, 300f)) }
+        waitForIdle()
+
+        assertTrue(headerHeight() >= 36.dp, "Still shown while its menu is open")
+        onNodeWithTag(MaterialDockTestTags.VERTICAL_HEADER).performClick()
+        waitForIdle()
+        assertEquals(DockLayoutOperation.SetGroupHeaderStyle(groupId, GroupHeaderStyle(isVertical = true, autoHides = true)), recorder.appliedOperations.last())
+        // Now a vertical strip: hidden again once the menu is closed, only its 12 dp wide hover zone remains.
+        val strip = onNodeWithTag(headerTag).getUnclippedBoundsInRoot()
+        assertEquals(12.dp, strip.right - strip.left, "Hidden again once the menu is closed and the pointer is away")
+    }
+
+    @Test
     fun theGridsAutoHideHidesThePanelHeadersUnlessTheyAreIndependent() {
         fun sideBySideWithHiddenGridHeader(): WindowDockState {
             val centerPanelId = stateWithoutRight.profile(landscape).layout.center.panels.single().id
