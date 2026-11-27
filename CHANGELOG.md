@@ -19,6 +19,10 @@ All notable changes to Docking Grid are documented here. The project follows [Se
     `DockingMetrics.centerHeaderHidesPanelHeaders` (default `true`) it also hides the headers of all panels
     (`isHeaderAutoHidden`, `isHeaderAutoHideForcedByGrid`).
   - While a dockable is dragged, auto-hidden group headers are shown, so tabs can still be dropped on them.
+  - An auto-hidden group header lies over the content: its background is transparent and only its texts, icons and
+    buttons are backed, semi-transparently (`DockGroupScope.isHeaderOverlay`). A revealed center grid header instead
+    pushes the panels down (`calculateDockGeometry(centerHeaderRevealFraction)`). `KeepHeaderVisible` keeps a
+    header shown while a menu opened from it is open.
   - `docking-grid-persistence`: the styles are stored with defaults, so existing schema-4 documents still read.
 - Center grid: the center can hold one panel, two side by side or stacked, three (one full-length) or a 2×2 grid,
   each panel a tab group. **Breaking:** `DockLayout.centerGroup` is replaced by `DockLayout.center: CenterGrid`

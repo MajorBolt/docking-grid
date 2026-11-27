@@ -85,6 +85,13 @@ public interface DockGroupScope {
     /** `true` while the center grid's auto-hide hides this group's header regardless of [headerStyle]. */
     public val isHeaderAutoHideForcedByGrid: Boolean get() = false
 
+    /**
+     * `true` while the header lies over the content (it auto-hides and slides in on hover). Chrome should then leave
+     * its background transparent and give only its texts, icons and buttons a background, so the content shows
+     * around them.
+     */
+    public val isHeaderOverlay: Boolean get() = false
+
     /** The side of a vertical header, or `null` for a header row at the top. */
     public val headerSide: DockSide? get() = null
 
@@ -200,6 +207,7 @@ internal fun DockGroupContainer(
         onArrangeCenter = onArrangeCenter,
         onHeaderStyleChange = onHeaderStyleChange,
         isHeaderAutoHideForcedByGrid = headerPresentation.isAutoHideForcedByGrid,
+        isHeaderOverlay = headerPresentation.isAutoHidden,
         headerSide = headerPresentation.side,
         dockableIcon = dockableIcon,
         onTabPositioned = { dockableId, coordinates ->
@@ -370,6 +378,7 @@ private class GroupScope(
     private val onArrangeCenter: (CenterPreset) -> Unit,
     private val onHeaderStyleChange: (GroupHeaderStyle) -> Unit,
     override val isHeaderAutoHideForcedByGrid: Boolean,
+    override val isHeaderOverlay: Boolean,
     override val headerSide: DockSide?,
     private val dockableIcon: (@Composable (DockableId) -> Unit)?,
     private val onTabPositioned: (DockableId, LayoutCoordinates) -> Unit,

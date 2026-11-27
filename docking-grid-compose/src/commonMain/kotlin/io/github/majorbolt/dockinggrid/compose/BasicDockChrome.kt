@@ -40,7 +40,7 @@ public fun DockGroupScope.BasicDockTabStrip(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(style.colors.headerBackground)
+            .then(if (isHeaderOverlay) Modifier else Modifier.background(style.colors.headerBackground))
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 4.dp),
     ) {
@@ -51,6 +51,7 @@ public fun DockGroupScope.BasicDockTabStrip(modifier: Modifier = Modifier) {
                 style = style.textStyle.copy(color = style.colors.headerContent),
                 modifier = Modifier
                     .dockTab(dockableId)
+                    .then(if (isHeaderOverlay) Modifier.background(style.colors.headerBackground.copy(alpha = OVERLAY_PART_ALPHA), style.groupShape) else Modifier)
                     .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
                     .drawBehind {
                         if (isSelected) {
@@ -75,20 +76,23 @@ public fun DockGroupScope.BasicDockHeader(modifier: Modifier = Modifier) {
     val style = LocalDockingStyle.current
     val selectedDockableId = group.selectedDockableId
     val textStyle = style.textStyle.copy(color = style.colors.headerContent)
+    // Lying over the content, only the title and the button get a background.
+    val partBackground = if (isHeaderOverlay) Modifier.background(style.colors.headerBackground.copy(alpha = OVERLAY_PART_ALPHA), style.groupShape) else Modifier
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(36.dp)
-            .background(style.colors.headerBackground)
+            .then(if (isHeaderOverlay) Modifier else Modifier.background(style.colors.headerBackground))
             .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BasicText(text = titleOf(selectedDockableId), style = textStyle)
+        BasicText(text = titleOf(selectedDockableId), style = textStyle, modifier = partBackground.padding(horizontal = 6.dp, vertical = 2.dp))
         BasicText(
             text = "×",
             style = textStyle,
             modifier = Modifier
+                .then(partBackground)
                 .clip(style.groupShape)
                 .clickable(role = Role.Button, onClick = { close(selectedDockableId) })
                 .semantics { contentDescription = style.strings.close }
@@ -105,7 +109,12 @@ public fun DockGroupScope.BasicDockHeader(modifier: Modifier = Modifier) {
 @Composable
 public fun DockGroupScope.BasicDockVerticalHeader(modifier: Modifier = Modifier) {
     val style = LocalDockingStyle.current
-    Column(modifier = modifier.fillMaxHeight().width(36.dp).background(style.colors.headerBackground)) {
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .width(36.dp)
+            .then(if (isHeaderOverlay) Modifier else Modifier.background(style.colors.headerBackground)),
+    ) {
         group.dockableIds.forEach { dockableId ->
             val isSelected = dockableId == group.selectedDockableId
             Box(
@@ -114,7 +123,8 @@ public fun DockGroupScope.BasicDockVerticalHeader(modifier: Modifier = Modifier)
                     .dockTab(dockableId)
                     .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
                     .semantics { contentDescription = titleOf(dockableId) }
-                    .background(if (isSelected) style.colors.tabIndicator.copy(alpha = 0.2f) else Color.Transparent),
+                    .then(if (isHeaderOverlay) Modifier.padding(2.dp).background(style.colors.headerBackground.copy(alpha = OVERLAY_PART_ALPHA), style.groupShape) else Modifier)
+                    .background(if (isSelected) style.colors.tabIndicator.copy(alpha = 0.2f) else Color.Transparent, style.groupShape),
                 contentAlignment = Alignment.Center,
             ) {
                 if (hasDockableIcons) {
@@ -176,3 +186,6 @@ public fun BasicDockDragLabel(title: String, modifier: Modifier = Modifier) {
             .padding(horizontal = 10.dp, vertical = 4.dp),
     )
 }
+
+/** Opacity of the backing of header parts while the header lies over the content (semi-transparent). */
+private const val OVERLAY_PART_ALPHA = 0.8f

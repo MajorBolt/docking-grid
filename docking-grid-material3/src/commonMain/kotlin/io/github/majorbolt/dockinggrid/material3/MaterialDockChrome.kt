@@ -59,6 +59,9 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
         selectedTabIndex = selectedTabIndex,
         edgePadding = 4.dp,
         modifier = modifier.fillMaxWidth(),
+        // Lying over the content, only the tab labels get a background.
+        containerColor = if (isHeaderOverlay) Color.Transparent else TabRowDefaults.primaryContainerColor,
+        divider = { if (!isHeaderOverlay) HorizontalDivider() },
         indicator = { tabPositions ->
             if (selectedTabIndex in tabPositions.indices) {
                 TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]))
@@ -69,7 +72,7 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
             Tab(
                 selected = dockableId == group.selectedDockableId,
                 onClick = { select(dockableId) },
-                text = { Text(titleOf(dockableId)) },
+                text = { Text(titleOf(dockableId), modifier = Modifier.overlayPart(isHeaderOverlay).padding(horizontal = 6.dp, vertical = 2.dp)) },
                 modifier = Modifier.dockTab(dockableId),
             )
         }
@@ -93,7 +96,8 @@ public fun DockGroupScope.MaterialDockHeader(
         modifier = modifier
             .fillMaxWidth()
             .height(36.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            // Lying over the content, only the title and the buttons get a background.
+            .then(if (isHeaderOverlay) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceVariant))
             .padding(horizontal = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -103,10 +107,13 @@ public fun DockGroupScope.MaterialDockHeader(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .overlayPart(isHeaderOverlay)
+                .padding(horizontal = if (isHeaderOverlay) 8.dp else 0.dp, vertical = 2.dp),
         )
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.overlayPart(isHeaderOverlay)) {
             val currentCenterPreset = centerPreset
             if (currentCenterPreset != null) {
                 MaterialCenterLayoutButton(currentPreset = currentCenterPreset, onSelectPreset = { preset -> arrangeCenter(preset) })
@@ -173,6 +180,19 @@ public fun DockGroupScope.MaterialDockOptionsButton(
         }
     }
 }
+
+/**
+ * The background of a part of a header that lies over the content ([DockGroupScope.isHeaderOverlay]): the header
+ * itself is transparent, and its texts, icons and buttons get a semi-transparent backing, so they stay readable while
+ * the content shows through. No effect when [isOverlay] is `false`.
+ */
+@Composable
+internal fun Modifier.overlayPart(isOverlay: Boolean): Modifier =
+    if (isOverlay) this.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = OVERLAY_PART_ALPHA), OVERLAY_PART_SHAPE) else this
+
+private const val OVERLAY_PART_ALPHA = 0.8f
+
+private val OVERLAY_PART_SHAPE = RoundedCornerShape(6.dp)
 
 /** Test tags of the Material dock chrome. */
 public object MaterialDockTestTags {

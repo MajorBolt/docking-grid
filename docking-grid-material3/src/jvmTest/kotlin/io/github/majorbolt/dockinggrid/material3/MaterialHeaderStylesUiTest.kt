@@ -139,6 +139,38 @@ class MaterialHeaderStylesUiTest {
     }
 
     @Test
+    fun onlyAnAutoHiddenHeaderLiesOverTheContent() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val state = stateWithoutRight.withHeaderStyle(Scenes, GroupHeaderStyle(autoHides = true))
+        val overlayByGroup = mutableMapOf<String, Boolean>()
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                MaterialTheme {
+                    Box(modifier = Modifier.size(width = 1600.dp, height = 900.dp)) {
+                        io.github.majorbolt.dockinggrid.compose.DockHost(
+                            profile = state.profile(landscape),
+                            catalog = TestDockables.catalog,
+                            capabilities = desktop,
+                            orientation = landscape,
+                            onApplyOperation = {},
+                            onCloseDockable = {},
+                            header = {
+                                overlayByGroup[group.id] = isHeaderOverlay
+                                MaterialDockHeader()
+                            },
+                            content = { dockableId -> Text("Content of ${TestDockables.titleOf(dockableId)}") },
+                        )
+                    }
+                }
+            }
+        }
+        onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(200f, 6f)) }
+        waitForIdle()
+
+        assertEquals(true, overlayByGroup[state.groupIdOf(Scenes)])
+        assertEquals(false, overlayByGroup[state.groupIdOf(GameControls)])
+    }
+
+    @Test
     fun anOpenMenuKeepsAnAutoHiddenHeaderShown() = runDesktopComposeUiTest(width = 1600, height = 900) {
         // Regression: the header slid out as soon as the pointer moved to its menu, and took the open menu along.
         val state = stateWithoutRight.withHeaderStyle(Scenes, GroupHeaderStyle(autoHides = true))

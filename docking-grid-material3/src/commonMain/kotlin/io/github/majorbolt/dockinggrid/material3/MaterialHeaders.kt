@@ -63,7 +63,8 @@ public fun DockGroupScope.MaterialVerticalDockHeader(
         modifier = modifier
             .fillMaxHeight()
             .width(VERTICAL_HEADER_WIDTH)
-            .background(colorScheme.surfaceVariant),
+            // Lying over the content, only the tabs, the title and the button get a background.
+            .then(if (isHeaderOverlay) Modifier else Modifier.background(colorScheme.surfaceVariant)),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         group.dockableIds.forEach { dockableId ->
@@ -79,7 +80,11 @@ public fun DockGroupScope.MaterialVerticalDockHeader(
                         .dockTab(dockableId)
                         .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
                         .semantics { contentDescription = titleOf(dockableId) }
-                        .background(if (isSelected && group.dockableIds.size > 1) colorScheme.primary.copy(alpha = SELECTED_TAB_ALPHA) else Color.Transparent)
+                        .then(if (isHeaderOverlay) Modifier.padding(2.dp).overlayPart(isOverlay = true) else Modifier)
+                        .background(
+                            if (isSelected && group.dockableIds.size > 1) colorScheme.primary.copy(alpha = SELECTED_TAB_ALPHA) else Color.Transparent,
+                            SELECTED_TAB_SHAPE,
+                        )
                         .testTag(MaterialDockTestTags.verticalTab(dockableId)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -100,13 +105,13 @@ public fun DockGroupScope.MaterialVerticalDockHeader(
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Clip,
-                    modifier = Modifier.rotatedQuarterTurn().padding(horizontal = 8.dp),
+                    modifier = Modifier.rotatedQuarterTurn().overlayPart(isHeaderOverlay).padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
         } else {
             Spacer(modifier = Modifier.weight(1f))
         }
-        MaterialDockOptionsButton(menuItems = menuItems)
+        MaterialDockOptionsButton(menuItems = menuItems, modifier = Modifier.overlayPart(isHeaderOverlay))
     }
 }
 
@@ -194,3 +199,4 @@ public fun CenterGridScope.MaterialCenterHeader(modifier: Modifier = Modifier) {
 
 private val VERTICAL_HEADER_WIDTH = 36.dp
 private const val SELECTED_TAB_ALPHA = 0.2f
+private val SELECTED_TAB_SHAPE = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
