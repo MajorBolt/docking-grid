@@ -54,6 +54,11 @@ import io.github.majorbolt.dockinggrid.isHeaderAutoHidden
 import io.github.majorbolt.dockinggrid.isHeaderAutoHideForcedByGrid
 import io.github.majorbolt.dockinggrid.verticalHeaderSide
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import io.github.majorbolt.dockinggrid.matchingPreset
@@ -251,11 +256,20 @@ public fun DockHost(
             }
 
             val displayedLayout = interaction.displayedLayout(profile.layout)
-            val displayedGeometry = remember(displayedLayout, contentSize, catalog, metrics, committedGeometry) {
-                if (displayedLayout == profile.layout) {
+            // An auto-hidden grid header pushes the panels down while it is revealed. Interactions work on the committed
+            // geometry, in which it is hidden, so it folds away while one runs.
+            var isCenterHeaderRevealRequested by remember { mutableStateOf(false) }
+            val revealsCenterHeader = isCenterHeaderRevealRequested && interaction == DockInteraction.Idle &&
+                displayedLayout.center.hasHeader && displayedLayout.center.autoHidesHeader
+            val centerHeaderRevealFraction by animateFloatAsState(
+                targetValue = if (revealsCenterHeader) 1f else 0f,
+                animationSpec = tween(durationMillis = AUTO_HIDE_ANIMATION_MILLIS),
+            )
+            val displayedGeometry = remember(displayedLayout, contentSize, catalog, metrics, committedGeometry, centerHeaderRevealFraction) {
+                if (displayedLayout == profile.layout && centerHeaderRevealFraction == 0f) {
                     committedGeometry
                 } else {
-                    calculateDockGeometry(displayedLayout, contentSize, catalog, metrics)
+                    calculateDockGeometry(displayedLayout, contentSize, catalog, metrics, centerHeaderRevealFraction)
                 }
             }
 
@@ -409,18 +423,14 @@ public fun DockHost(
                         onAutoHidesHeaderChange = { autoHides -> onApplyOperation(DockLayoutOperation.SetCenterHeaderAutoHide(autoHides)) },
                     )
                     if (displayedLayout.center.autoHidesHeader) {
-                        // Only the top edge of the grid shows it, so the panels' own headers below stay reachable. It is no
-                        // drop target, so a drag does not show it.
-                        AutoHidingHeader(
-                            side = null,
-                            isForcedVisible = false,
-                            hoverZone = CENTER_HEADER_HOVER_ZONE,
-                            modifier = Modifier
-                                .absoluteOffset(x = centerHeaderRect.left.dp, y = centerHeaderRect.top.dp)
-                                .width(centerHeaderRect.width.dp)
-                                .testTag(DockHostTestTags.CENTER_HEADER),
+                        // Only the top edge of the grid reveals it, so the panels' own headers below stay reachable. It is
+                        // no drop target, so a drag does not reveal it.
+                        RevealingCenterHeader(
+                            rect = centerHeaderRect,
+                            revealFraction = centerHeaderRevealFraction,
+                            onRevealRequestChange = { isRequested -> isCenterHeaderRevealRequested = isRequested },
                         ) {
-                            Box(modifier = Modifier.fillMaxWidth().height(centerHeaderRect.height.dp)) { centerScope.centerHeader() }
+                            centerScope.centerHeader()
                         }
                     } else {
                         Box(modifier = Modifier.placedAt(centerHeaderRect).testTag(DockHostTestTags.CENTER_HEADER)) {
@@ -487,6 +497,45 @@ public fun DockHost(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * An auto-hidden center grid header: a hover zone along the top edge of the grid that asks to reveal it, and the
+ * header itself, uncovered from the top as far as [revealFraction] (the host moves the panels down by as much).
+ */
+@Composable
+private fun RevealingCenterHeader(
+    rect: DockRect,
+    revealFraction: Float,
+    onRevealRequestChange: (Boolean) -> Unit,
+    header: @Composable () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val holds = remember { HeaderVisibilityHolds() }
+    val isRequested = isHovered || holds.count > 0
+    val currentOnRevealRequestChange by rememberUpdatedState(onRevealRequestChange)
+    LaunchedEffect(isRequested) { currentOnRevealRequestChange(isRequested) }
+    DisposableEffect(Unit) { onDispose { currentOnRevealRequestChange(false) } }
+    val shownHeight = rect.height * revealFraction
+    Box(
+        modifier = Modifier
+            .absoluteOffset(x = rect.left.dp, y = rect.top.dp)
+            .width(rect.width.dp)
+            .height(maxOf(CENTER_HEADER_HOVER_ZONE.value, shownHeight).dp)
+            .hoverable(interactionSource)
+            .clipToBounds()
+            .testTag(DockHostTestTags.CENTER_HEADER),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(rect.height.dp)
+                .absoluteOffset(y = (shownHeight - rect.height).dp),
+        ) {
+            CompositionLocalProvider(LocalHeaderVisibilityHolds provides holds) { header() }
         }
     }
 }

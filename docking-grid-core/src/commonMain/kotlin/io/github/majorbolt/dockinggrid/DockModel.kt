@@ -129,8 +129,8 @@ public data class CenterSection(
  * center shows the empty placeholder.
  *
  * @property splitFraction share of the center's length along [axis] (without the divider) that the first section takes.
- * @property autoHidesHeader the grid header (shown with two or more panels) is hidden and slides in on hover; see
- * [isHeaderAutoHidden] for its effect on the panels' headers.
+ * @property autoHidesHeader the grid header (shown with two or more panels) is hidden and slides in on hover, pushing
+ * the panels down while it is shown; see [isHeaderAutoHidden] for its effect on the panels' headers.
  */
 public data class CenterGrid(
     val axis: CenterAxis = CenterAxis.HORIZONTAL,

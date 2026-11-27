@@ -128,14 +128,19 @@ public data class DockGeometry(
  * Lane extents are fractions of the content size. When space is insufficient, lanes shrink towards
  * their minimum sizes first; only if even the minimums do not fit, everything shrinks proportionally.
  * Stored fractions are never changed by this calculation.
+ *
+ * @param centerHeaderRevealFraction how far an auto-hidden center grid header is shown, from 0 (hidden, the panels
+ * start at the top of the center) to 1 (shown, the panels lie below it): the revealed header pushes the panels down
+ * instead of covering their headers. It has no effect on a header that does not auto-hide.
  */
 public fun calculateDockGeometry(
     layout: DockLayout,
     contentSize: DockSize,
     catalog: DockableCatalog,
     metrics: DockingMetrics = DockingMetrics(),
+    centerHeaderRevealFraction: Float = 0f,
 ): DockGeometry {
-    val builder = GeometryBuilder(layout, contentSize, catalog, metrics)
+    val builder = GeometryBuilder(layout, contentSize, catalog, metrics, centerHeaderRevealFraction.coerceIn(0f, 1f))
     val contentRect = DockRect(0f, 0f, contentSize.widthDp.coerceAtLeast(0f), contentSize.heightDp.coerceAtLeast(0f))
     val innerFrameRect = builder.placeFrame(
         frame = layout.outerFrame,
@@ -198,6 +203,7 @@ private class GeometryBuilder(
     private val contentSize: DockSize,
     private val catalog: DockableCatalog,
     private val metrics: DockingMetrics,
+    private val centerHeaderRevealFraction: Float = 0f,
 ) {
     val laneRects = mutableMapOf<String, DockRect>()
     val groupRects = mutableMapOf<String, DockRect>()
@@ -205,15 +211,23 @@ private class GeometryBuilder(
     val centerPanelRects = mutableMapOf<String, DockRect>()
     var centerHeaderRect: DockRect? = null
 
-    /** The grid header takes space only while it is shown; an auto-hidden one lies over the panels. */
-    private val reservedCenterHeaderHeight: Float
+    /** The grid header takes space while it is shown; an auto-hidden one only as far as it is revealed. */
+    private val permanentCenterHeaderHeight: Float
         get() = if (layout.center.hasHeader && !layout.center.autoHidesHeader) metrics.centerHeaderHeightDp else 0f
+
+    private val reservedCenterHeaderHeight: Float
+        get() = when {
+            !layout.center.hasHeader -> 0f
+            layout.center.autoHidesHeader -> metrics.centerHeaderHeightDp * centerHeaderRevealFraction
+            else -> metrics.centerHeaderHeightDp
+        }
 
     private val divider: Float get() = metrics.dividerThicknessDp
 
     fun centerMinimumWidth(): Float = centerMinimumLength(CenterAxis.HORIZONTAL)
 
-    fun centerMinimumHeight(): Float = centerMinimumLength(CenterAxis.VERTICAL) + reservedCenterHeaderHeight
+    // A header that is only revealed for a moment does not change the minimum sizes.
+    fun centerMinimumHeight(): Float = centerMinimumLength(CenterAxis.VERTICAL) + permanentCenterHeaderHeight
 
     /**
      * Minimum length of the center along [measuredAxis] (HORIZONTAL = width): along the grid axis the sections add up

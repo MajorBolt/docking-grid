@@ -186,6 +186,30 @@ class MaterialHeaderStylesUiTest {
     }
 
     @Test
+    fun aRevealedGridHeaderPushesThePanelsDownInsteadOfCoveringTheirHeaders() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val centerPanelId = stateWithoutRight.profile(landscape).layout.center.panels.single().id
+        val state = stateWithoutRight
+            .applyOrFail(DockLayoutOperation.SplitCenterPanel(Scenes, centerPanelId, DockSide.RIGHT))
+            .applyOrFail(DockLayoutOperation.SetCenterHeaderAutoHide(true))
+        // The grid header covers every panel header by default; here the panel headers stay, to see them move.
+        setDockHost(state, centerHeaderHidesPanelHeaders = false)
+        val groupTag = DockHostTestTags.group(state.groupIdOf(GameControls))
+        fun panelTop() = onNodeWithTag(groupTag).getUnclippedBoundsInRoot().top
+
+        assertEquals(0.dp, panelTop(), "Hidden: the panels start at the top")
+
+        onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(700f, 3f)) }
+        waitForIdle()
+        assertEquals(28.dp, panelTop(), "Revealed: the panels lie below the grid header")
+        val header = onNodeWithTag(DockHostTestTags.CENTER_HEADER).getUnclippedBoundsInRoot()
+        assertEquals(28.dp, header.bottom - header.top)
+
+        onNodeWithTag(DockHostTestTags.HOST).performMouseInput { moveTo(Offset(700f, 400f)) }
+        waitForIdle()
+        assertEquals(0.dp, panelTop(), "Hidden again")
+    }
+
+    @Test
     fun aDragShowsHiddenHeadersSoATabCanBeDroppedOnThem() = runDesktopComposeUiTest(width = 1600, height = 900) {
         val state = stateWithoutRight.withHeaderStyle(Scenes, GroupHeaderStyle(autoHides = true))
         val recorder = setDockHost(state)

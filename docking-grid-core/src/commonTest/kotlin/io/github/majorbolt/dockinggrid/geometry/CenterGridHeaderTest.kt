@@ -63,6 +63,19 @@ class CenterGridHeaderTest {
     }
 
     @Test
+    fun aRevealedAutoHiddenGridHeaderPushesThePanelsDown() {
+        val layout = sideBySide(autoHidesHeader = true)
+        fun panelTop(revealFraction: Float) =
+            calculateDockGeometry(layout, contentSize, TestDockables.catalog, centerHeaderRevealFraction = revealFraction).centerPanelRects.getValue("a").top
+
+        assertEquals(0f, panelTop(0f))
+        assertEquals(14f, panelTop(0.5f), "Halfway through the slide")
+        assertEquals(28f, panelTop(1f))
+        assertEquals(28f, calculateDockGeometry(sideBySide(), contentSize, TestDockables.catalog, centerHeaderRevealFraction = 0f).centerPanelRects.getValue("a").top,
+            "A header that does not auto-hide always takes its space")
+    }
+
+    @Test
     fun aSingleCenterPanelHasNoGridHeader() {
         val single = DockLayout(center = CenterGrid.single(TabGroup("only", listOf(Scenes))))
         val geometry = geometryOf(single)
