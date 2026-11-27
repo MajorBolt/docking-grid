@@ -128,7 +128,7 @@ private fun Modifier.rotatedQuarterTurn(): Modifier = this
     .rotate(-90f)
 
 /**
- * The header of the center grid: a caption, the current arrangement as a button that opens the arrangements, and an
+ * The header of the center grid: the current arrangement as a button that opens the arrangements, and an
  * options menu with "Lock dividers" (when the host offers it), "Reset dividers" and "Auto-hide header".
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,7 +146,8 @@ public fun CenterGridScope.MaterialCenterHeader(modifier: Modifier = Modifier) {
             .padding(start = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = strings.center, style = MaterialTheme.typography.labelMedium, color = colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        // No caption: the buttons alone, at the right end.
+        Spacer(modifier = Modifier.weight(1f))
         MaterialCenterLayoutButton(currentPreset = preset, onSelectPreset = { selectedPreset -> arrangeCenter(selectedPreset) })
         Box {
             TooltipBox(
