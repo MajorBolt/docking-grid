@@ -29,17 +29,32 @@ public enum class LayoutOrientation {
 }
 
 /**
+ * How the header of a tab group is shown.
+ *
+ * @property isVertical the header is a strip on the group's outer side (see [verticalHeaderSide]) instead of a row
+ * at the top; tabs are shown as icons.
+ * @property autoHides the header is hidden and slides in over the content while the pointer is over it.
+ */
+public data class GroupHeaderStyle(
+    val isVertical: Boolean = false,
+    val autoHides: Boolean = false,
+)
+
+/**
  * A tab group: one or more dockables, exactly one of which is shown.
  *
  * @property sizeFraction share of the containing lane's full length along its stacking axis, including half of
  * each adjacent group divider; so inserting or removing a divider only affects the two groups beside it.
  * The fractions of all groups in a lane sum to 1 after normalization.
+ * @property headerStyle belongs to the group, not to its dockables: a dockable moved into another group takes that
+ * group's style, and new groups start with the default.
  */
 public data class TabGroup(
     val id: String,
     val dockableIds: List<DockableId>,
     val selectedDockableId: DockableId = dockableIds.first(),
     val sizeFraction: Float = 1f,
+    val headerStyle: GroupHeaderStyle = GroupHeaderStyle(),
 )
 
 /**
@@ -114,12 +129,18 @@ public data class CenterSection(
  * center shows the empty placeholder.
  *
  * @property splitFraction share of the center's length along [axis] (without the divider) that the first section takes.
+ * @property autoHidesHeader the grid header (shown with two or more panels) is hidden and slides in on hover; see
+ * [isHeaderAutoHidden] for its effect on the panels' headers.
  */
 public data class CenterGrid(
     val axis: CenterAxis = CenterAxis.HORIZONTAL,
     val sections: List<CenterSection> = emptyList(),
     val splitFraction: Float = 0.5f,
+    val autoHidesHeader: Boolean = false,
 ) {
+    /** The grid has its own header while it holds two or more panels. */
+    val hasHeader: Boolean get() = panels.size >= 2
+
     val panels: List<CenterPanel> get() = sections.flatMap { section -> section.panels }
 
     val groups: List<TabGroup> get() = panels.mapNotNull { panel -> panel.group }

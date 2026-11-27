@@ -72,6 +72,9 @@ public data class DockingColors(
  * @property centerPresetTitles name of each [CenterPreset]; a missing entry shows the preset's name.
  * @property lockCenterDividers label of the option that locks the dividers of the center grid in place.
  * @property resetCenterDividers label of the action that makes every split of the center grid even.
+ * @property center caption of the center grid's header.
+ * @property verticalHeader label of the option that shows a group's header as a strip at its side.
+ * @property autoHideHeader label of the option that hides a header until it is hovered.
  * @property liftedSlot shown in the place of a dragged dockable while the pointer is over no other target.
  * @property close label of the action that closes a dockable.
  * @property options label of the menu with further actions of a dockable, where the chrome has one.
@@ -84,6 +87,9 @@ public data class DockingStrings(
     val centerPresetTitles: Map<CenterPreset, String> = DEFAULT_CENTER_PRESET_TITLES,
     val lockCenterDividers: String = "Lock dividers",
     val resetCenterDividers: String = "Reset dividers",
+    val center: String = "Center",
+    val verticalHeader: String = "Vertical header",
+    val autoHideHeader: String = "Auto-hide header",
     val liftedSlot: String = "Drop here to keep it in place",
     val close: String = "Close",
     val options: String = "Options",

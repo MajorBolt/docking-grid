@@ -13,6 +13,7 @@ import io.github.majorbolt.dockinggrid.DockProfile
 import io.github.majorbolt.dockinggrid.DockSide
 import io.github.majorbolt.dockinggrid.DockableCatalog
 import io.github.majorbolt.dockinggrid.DockableId
+import io.github.majorbolt.dockinggrid.GroupHeaderStyle
 import io.github.majorbolt.dockinggrid.LayoutOrientation
 import io.github.majorbolt.dockinggrid.PlacementMemory
 import io.github.majorbolt.dockinggrid.TabGroup
@@ -43,6 +44,7 @@ private fun DockLayout.toDto(): DockLayoutDto = DockLayoutDto(
 private fun CenterGrid.toDto(): CenterGridDto = CenterGridDto(
     axis = axis.name,
     splitFraction = splitFraction,
+    autoHidesHeader = autoHidesHeader,
     sections = sections.map { section ->
         CenterSectionDto(
             splitFraction = section.splitFraction,
@@ -69,6 +71,8 @@ private fun TabGroup.toDto(): TabGroupDto = TabGroupDto(
     dockableIds = dockableIds.map { dockableId -> dockableId.value },
     selectedDockableId = selectedDockableId.value,
     sizeFraction = sizeFraction,
+    hasVerticalHeader = headerStyle.isVertical,
+    autoHidesHeader = headerStyle.autoHides,
 )
 
 private fun PlacementMemory.toDto(): PlacementMemoryDto {
@@ -125,6 +129,7 @@ private fun DockLayoutDto.toDomain(catalog: DockableCatalog): DockLayout = DockL
 private fun CenterGridDto.toDomain(catalog: DockableCatalog): CenterGrid = CenterGrid(
     axis = CenterAxis.entries.firstOrNull { entry -> entry.name == axis } ?: CenterAxis.HORIZONTAL,
     splitFraction = splitFraction,
+    autoHidesHeader = autoHidesHeader,
     sections = sections.mapNotNull { sectionDto ->
         val panels = sectionDto.panels.mapNotNull { panelDto ->
             val groupDto = panelDto.group ?: return@mapNotNull CenterPanel(id = panelDto.id, group = null)
@@ -151,7 +156,13 @@ private fun TabGroupDto.toDomain(catalog: DockableCatalog): TabGroup? {
     if (knownDockableIds.isEmpty()) return null
     val knownSelectedDockableId = selectedDockableId?.let(::DockableId)?.takeIf { selected -> selected in knownDockableIds }
         ?: knownDockableIds.first()
-    return TabGroup(id = id, dockableIds = knownDockableIds, selectedDockableId = knownSelectedDockableId, sizeFraction = sizeFraction)
+    return TabGroup(
+        id = id,
+        dockableIds = knownDockableIds,
+        selectedDockableId = knownSelectedDockableId,
+        sizeFraction = sizeFraction,
+        headerStyle = GroupHeaderStyle(isVertical = hasVerticalHeader, autoHides = autoHidesHeader),
+    )
 }
 
 private fun PlacementMemoryDto.toDomain(): PlacementMemory? {

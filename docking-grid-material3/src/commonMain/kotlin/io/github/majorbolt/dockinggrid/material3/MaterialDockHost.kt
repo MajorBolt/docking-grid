@@ -20,8 +20,9 @@ import io.github.majorbolt.dockinggrid.geometry.DockingMetrics
  * to combine the Material pieces ([MaterialDockTabStrip], [MaterialDockHeader], ...) with own slots.
  *
  * @param dockableMenuItems further entries of a group's options menu, below "Close"; see [MaterialDockHeader].
- * @param onCenterSplitsResizableChange when set, the options menu of a center panel offers "Lock dividers"; see
+ * @param onCenterSplitsResizableChange when set, the center header's options menu offers "Lock dividers"; see
  *   [DockHost].
+ * @param dockableIcon draws a dockable's icon in vertical headers; without it they show the title's first letter.
  */
 @Composable
 public fun MaterialDockHost(
@@ -38,6 +39,7 @@ public fun MaterialDockHost(
     dragController: DockDragController? = null,
     dockableMenuItems: @Composable (dockableId: DockableId, dismissMenu: () -> Unit) -> Unit = { _, _ -> },
     onCenterSplitsResizableChange: ((Boolean) -> Unit)? = null,
+    dockableIcon: (@Composable (DockableId) -> Unit)? = null,
     content: @Composable (DockableId) -> Unit,
 ) {
     DockHost(
@@ -52,6 +54,9 @@ public fun MaterialDockHost(
         metrics = metrics,
         tabStrip = { MaterialDockTabStrip() },
         header = { MaterialDockHeader(menuItems = dockableMenuItems) },
+        verticalHeader = { MaterialVerticalDockHeader(menuItems = dockableMenuItems) },
+        centerHeader = { MaterialCenterHeader() },
+        dockableIcon = dockableIcon,
         divider = divider,
         placeholder = { text -> MaterialDockPlaceholder(text) },
         dragLabel = { title -> MaterialDockDragLabel(title) },

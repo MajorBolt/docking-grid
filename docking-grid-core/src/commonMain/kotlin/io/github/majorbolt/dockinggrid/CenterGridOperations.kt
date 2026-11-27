@@ -45,6 +45,10 @@ internal fun CenterPreset.arrange(panels: List<CenterPanel>): CenterGrid {
     }
 }
 
+/** Builds the arrangement of this preset from [panels] (see above), keeping the grid header's [autoHidesHeader]. */
+internal fun CenterPreset.arrange(panels: List<CenterPanel>, autoHidesHeader: Boolean): CenterGrid =
+    arrange(panels).copy(autoHidesHeader = autoHidesHeader)
+
 internal fun DockLayout.splitCenterPanel(
     operation: DockLayoutOperation.SplitCenterPanel,
     capabilities: DockingCapabilities,
@@ -132,7 +136,7 @@ internal fun DockLayout.arrangeCenter(
             group = assignedGroups[panelIndex],
         )
     }
-    return DockOperationResult.Applied(copy(center = operation.preset.arrange(panels)).normalized())
+    return DockOperationResult.Applied(copy(center = operation.preset.arrange(panels, center.autoHidesHeader)).normalized())
 }
 
 /** This grid with every split even. */
@@ -208,7 +212,7 @@ internal fun CenterGrid.normalized(normalizeGroup: (TabGroup) -> TabGroup?): Cen
         CenterSection(panels = panels, splitFraction = if (panels.size < 2) DEFAULT_CENTER_SPLIT_FRACTION else section.splitFraction.clampedSplitFraction())
     }.take(2)
     val onlySection = normalizedSections.singleOrNull()
-    return when {
+    val normalizedGrid = when {
         normalizedSections.isEmpty() -> CenterGrid()
         onlySection != null && onlySection.panels.size == 2 -> CenterGrid(
             axis = axis.crossAxis,
@@ -219,6 +223,8 @@ internal fun CenterGrid.normalized(normalizeGroup: (TabGroup) -> TabGroup?): Cen
         onlySection != null -> CenterGrid(axis = CenterAxis.HORIZONTAL, sections = normalizedSections)
         else -> CenterGrid(axis = axis, sections = normalizedSections, splitFraction = splitFraction.clampedSplitFraction())
     }
+    // The grid header's choice is kept while the grid shrinks and grows again.
+    return normalizedGrid.copy(autoHidesHeader = autoHidesHeader)
 }
 
 private fun Float.clampedSplitFraction(): Float =

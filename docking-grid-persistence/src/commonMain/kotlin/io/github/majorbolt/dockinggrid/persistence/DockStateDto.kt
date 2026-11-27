@@ -35,6 +35,7 @@ internal data class CenterGridDto(
     val axis: String = "HORIZONTAL",
     val splitFraction: Float = 0.5f,
     val sections: List<CenterSectionDto> = emptyList(),
+    val autoHidesHeader: Boolean = false,
 )
 
 @Serializable
@@ -71,6 +72,8 @@ internal data class TabGroupDto(
     val dockableIds: List<String>,
     val selectedDockableId: String? = null,
     val sizeFraction: Float = 1f,
+    val hasVerticalHeader: Boolean = false,
+    val autoHidesHeader: Boolean = false,
 )
 
 @Serializable

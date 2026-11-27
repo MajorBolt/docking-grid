@@ -6,6 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -88,6 +94,48 @@ public fun DockGroupScope.BasicDockHeader(modifier: Modifier = Modifier) {
                 .semantics { contentDescription = style.strings.close }
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         )
+    }
+}
+
+/**
+ * A vertical header: one tab per dockable stacked from the top, showing its icon when the host has icons and the
+ * first letter of its title otherwise. Sizes match [io.github.majorbolt.dockinggrid.geometry.GroupHeaderMetrics]'
+ * defaults (36 dp wide, 36 dp per tab).
+ */
+@Composable
+public fun DockGroupScope.BasicDockVerticalHeader(modifier: Modifier = Modifier) {
+    val style = LocalDockingStyle.current
+    Column(modifier = modifier.fillMaxHeight().width(36.dp).background(style.colors.headerBackground)) {
+        group.dockableIds.forEach { dockableId ->
+            val isSelected = dockableId == group.selectedDockableId
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .dockTab(dockableId)
+                    .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
+                    .semantics { contentDescription = titleOf(dockableId) }
+                    .background(if (isSelected) style.colors.tabIndicator.copy(alpha = 0.2f) else Color.Transparent),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (hasDockableIcons) {
+                    DockableIcon(dockableId)
+                } else {
+                    BasicText(text = titleOf(dockableId).take(1), style = style.textStyle.copy(color = style.colors.headerContent))
+                }
+            }
+        }
+    }
+}
+
+/** The header of the center grid: its caption. */
+@Composable
+public fun CenterGridScope.BasicCenterHeader(modifier: Modifier = Modifier) {
+    val style = LocalDockingStyle.current
+    Row(
+        modifier = modifier.fillMaxSize().background(style.colors.headerBackground).padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicText(text = style.strings.center, style = style.textStyle.copy(color = style.colors.headerContent))
     }
 }
 

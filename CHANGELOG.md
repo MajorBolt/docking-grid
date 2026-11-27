@@ -4,6 +4,22 @@ All notable changes to Docking Grid are documented here. The project follows [Se
 
 ## Unreleased
 
+- Header styles. **Breaking:** the center-grid members of `DockGroupScope` from the previous entry (lock, reset)
+  moved to the new `CenterGridScope`.
+  - The center grid has its own header while it holds two or more panels (`DockHost(centerHeader = ...)`,
+    `MaterialCenterHeader`, `DockingMetrics.centerHeaderHeightDp`, `DockGeometry.centerHeaderRect`): the arrangement
+    button and the options Lock dividers, Reset dividers and Auto-hide header. A single panel keeps the arrangement
+    button in its own header.
+  - `TabGroup.headerStyle: GroupHeaderStyle`: a vertical header (a strip on the group's outer side, see
+    `verticalHeaderSide`, with one icon tab per dockable: `DockHost(verticalHeader = ..., dockableIcon = ...)`,
+    `MaterialVerticalDockHeader`) and an auto-hidden header that slides in over the content on hover. Both are
+    offered in the group's options menu (`MaterialDockOptionsButton`) and stored with the group
+    (`DockLayoutOperation.SetGroupHeaderStyle`).
+  - `CenterGrid.autoHidesHeader` (`DockLayoutOperation.SetCenterHeaderAutoHide`); with
+    `DockingMetrics.centerHeaderHidesPanelHeaders` (default `true`) it also hides the headers of all panels
+    (`isHeaderAutoHidden`, `isHeaderAutoHideForcedByGrid`).
+  - While a dockable is dragged, auto-hidden group headers are shown, so tabs can still be dropped on them.
+  - `docking-grid-persistence`: the styles are stored with defaults, so existing schema-4 documents still read.
 - Center grid: the center can hold one panel, two side by side or stacked, three (one full-length) or a 2×2 grid,
   each panel a tab group. **Breaking:** `DockLayout.centerGroup` is replaced by `DockLayout.center: CenterGrid`
   (`CenterAxis`, `CenterSection`, `CenterPanel`; `CenterGrid.single(group)` for one panel).

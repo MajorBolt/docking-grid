@@ -76,24 +76,18 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
 }
 
 /**
- * Title bar of the selected dockable with an options menu that can close it. In a center panel the header also shows
- * the current center arrangement as a button that opens the arrangements ([MaterialCenterLayoutButton]), and the
- * options menu can lock the center dividers and reset them.
+ * Title bar of the selected dockable with an options menu ([MaterialDockOptionsButton]). As the only center panel
+ * the header also shows the center arrangement as a button that opens the arrangements ([MaterialCenterLayoutButton]);
+ * with more panels the center header ([MaterialCenterHeader]) has it.
  *
  * @param menuItems further entries of the options menu, shown below "Close", for the selected dockable. Use
  *   [MaterialDockMenuItem] for them and call `dismissMenu` when an entry was chosen.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 public fun DockGroupScope.MaterialDockHeader(
     modifier: Modifier = Modifier,
     menuItems: @Composable (dockableId: DockableId, dismissMenu: () -> Unit) -> Unit = { _, _ -> },
 ) {
-    val strings = LocalDockingStyle.current.strings
-    val selectedDockableId = group.selectedDockableId
-    var isMenuExpanded by remember { mutableStateOf(false) }
-    val tooltipState = rememberTooltipState()
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -104,9 +98,11 @@ public fun DockGroupScope.MaterialDockHeader(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = titleOf(selectedDockableId),
+            text = titleOf(group.selectedDockableId),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier.weight(1f, fill = false),
         )
 
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -114,60 +110,75 @@ public fun DockGroupScope.MaterialDockHeader(
             if (currentCenterPreset != null) {
                 MaterialCenterLayoutButton(currentPreset = currentCenterPreset, onSelectPreset = { preset -> arrangeCenter(preset) })
             }
-            Box {
-                TooltipBox(
-                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-                    tooltip = { PlainTooltip { Text(strings.options) } },
-                    state = tooltipState,
-                ) {
-                    IconButton(onClick = { isMenuExpanded = true }) {
-                        Text(
-                            text = "⋮",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                DropdownMenu(
-                    expanded = isMenuExpanded,
-                    onDismissRequest = { isMenuExpanded = false },
-                ) {
-                    MaterialDockMenuItem(
-                        text = strings.close,
-                        onClick = {
-                            isMenuExpanded = false
-                            close(selectedDockableId)
-                        },
-                    )
-                    menuItems(selectedDockableId) { isMenuExpanded = false }
-                    if (currentCenterPreset != null && currentCenterPreset != CenterPreset.SINGLE) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                        if (canChangeCenterSplitsResizable) {
-                            MaterialDockMenuItem(
-                                text = strings.lockCenterDividers,
-                                isChecked = !centerSplitsResizable,
-                                onClick = {
-                                    isMenuExpanded = false
-                                    setCenterSplitsResizable(!centerSplitsResizable)
-                                },
-                                modifier = Modifier.testTag(MaterialCenterLayoutTestTags.LOCK_DIVIDERS),
-                            )
-                        }
-                        MaterialDockMenuItem(
-                            text = strings.resetCenterDividers,
-                            enabled = hasUnevenCenterSplits,
-                            onClick = {
-                                isMenuExpanded = false
-                                resetCenterSplits()
-                            },
-                            modifier = Modifier.testTag(MaterialCenterLayoutTestTags.RESET_DIVIDERS),
-                        )
-                    }
-                }
-            }
+            MaterialDockOptionsButton(menuItems = menuItems)
         }
     }
+}
+
+/**
+ * The "⋮" button of a group with its options menu: "Close", the [menuItems] of the host, and the header options
+ * "Vertical header" and "Auto-hide header" (shown checked and disabled while the center grid's auto-hide hides it).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+public fun DockGroupScope.MaterialDockOptionsButton(
+    modifier: Modifier = Modifier,
+    menuItems: @Composable (dockableId: DockableId, dismissMenu: () -> Unit) -> Unit = { _, _ -> },
+) {
+    val strings = LocalDockingStyle.current.strings
+    val selectedDockableId = group.selectedDockableId
+    var isMenuExpanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        TooltipBox(
+            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text(strings.options) } },
+            state = rememberTooltipState(),
+        ) {
+            IconButton(onClick = { isMenuExpanded = true }, modifier = Modifier.testTag(MaterialDockTestTags.options(group.id))) {
+                Text(text = "⋮", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        DropdownMenu(expanded = isMenuExpanded, onDismissRequest = { isMenuExpanded = false }) {
+            MaterialDockMenuItem(
+                text = strings.close,
+                onClick = {
+                    isMenuExpanded = false
+                    close(selectedDockableId)
+                },
+            )
+            menuItems(selectedDockableId) { isMenuExpanded = false }
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            MaterialDockMenuItem(
+                text = strings.verticalHeader,
+                isChecked = headerStyle.isVertical,
+                onClick = {
+                    isMenuExpanded = false
+                    setHeaderStyle(headerStyle.copy(isVertical = !headerStyle.isVertical))
+                },
+                modifier = Modifier.testTag(MaterialDockTestTags.VERTICAL_HEADER),
+            )
+            MaterialDockMenuItem(
+                text = strings.autoHideHeader,
+                isChecked = headerStyle.autoHides || isHeaderAutoHideForcedByGrid,
+                enabled = !isHeaderAutoHideForcedByGrid,
+                onClick = {
+                    isMenuExpanded = false
+                    setHeaderStyle(headerStyle.copy(autoHides = !headerStyle.autoHides))
+                },
+                modifier = Modifier.testTag(MaterialDockTestTags.AUTO_HIDE_HEADER),
+            )
+        }
+    }
+}
+
+/** Test tags of the Material dock chrome. */
+public object MaterialDockTestTags {
+    public const val VERTICAL_HEADER: String = "dock_menu_vertical_header"
+    public const val AUTO_HIDE_HEADER: String = "dock_menu_auto_hide_header"
+
+    public fun options(groupId: String): String = "dock_options_$groupId"
+
+    public fun verticalTab(dockableId: DockableId): String = "dock_vertical_tab_${dockableId.value}"
 }
 
 /** Height of one entry of a dock menu: more compact than the Material default, like desktop menus. */

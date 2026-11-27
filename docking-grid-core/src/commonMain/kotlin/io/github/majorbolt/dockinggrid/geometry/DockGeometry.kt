@@ -61,6 +61,13 @@ public data class DockingMetrics(
      * panel's shown one.
      */
     val centerPanelEdgeShare: Float = 0.25f,
+    /** Height of the center grid's header, shown while the grid holds two or more panels. */
+    val centerHeaderHeightDp: Float = 28f,
+    /**
+     * Whether auto-hiding the center grid's header also hides the headers of all its panels (the grid's choice takes
+     * priority); otherwise each panel follows its own [io.github.majorbolt.dockinggrid.GroupHeaderStyle.autoHides].
+     */
+    val centerHeaderHidesPanelHeaders: Boolean = true,
 )
 
 /** What dragging a divider changes. */
@@ -106,6 +113,11 @@ public data class DockGeometry(
     val dividers: List<DockDivider>,
     /** Rect of every center panel by panel id, including empty panels; a panel's group has the same rect. */
     val centerPanelRects: Map<String, DockRect> = emptyMap(),
+    /**
+     * The center grid's header at the top of [centerRect] while the grid has one (two or more panels); also when it
+     * auto-hides, then the panels lie below it instead of under it. It is not a drop target.
+     */
+    val centerHeaderRect: DockRect? = null,
 )
 
 /**
@@ -146,6 +158,7 @@ public fun calculateDockGeometry(
         centerRect = centerRect,
         dividers = builder.dividers.toList(),
         centerPanelRects = builder.centerPanelRects.toMap(),
+        centerHeaderRect = builder.centerHeaderRect,
     )
 }
 
@@ -190,12 +203,17 @@ private class GeometryBuilder(
     val groupRects = mutableMapOf<String, DockRect>()
     val dividers = mutableListOf<DockDivider>()
     val centerPanelRects = mutableMapOf<String, DockRect>()
+    var centerHeaderRect: DockRect? = null
+
+    /** The grid header takes space only while it is shown; an auto-hidden one lies over the panels. */
+    private val reservedCenterHeaderHeight: Float
+        get() = if (layout.center.hasHeader && !layout.center.autoHidesHeader) metrics.centerHeaderHeightDp else 0f
 
     private val divider: Float get() = metrics.dividerThicknessDp
 
     fun centerMinimumWidth(): Float = centerMinimumLength(CenterAxis.HORIZONTAL)
 
-    fun centerMinimumHeight(): Float = centerMinimumLength(CenterAxis.VERTICAL)
+    fun centerMinimumHeight(): Float = centerMinimumLength(CenterAxis.VERTICAL) + reservedCenterHeaderHeight
 
     /**
      * Minimum length of the center along [measuredAxis] (HORIZONTAL = width): along the grid axis the sections add up
@@ -236,9 +254,14 @@ private class GeometryBuilder(
     fun placeCenter(centerRect: DockRect) {
         val grid = layout.center
         if (grid.isEmpty) return
+        if (grid.hasHeader) {
+            centerHeaderRect = centerRect.copy(height = metrics.centerHeaderHeightDp.coerceIn(0f, centerRect.height))
+        }
+        val headerHeight = reservedCenterHeaderHeight.coerceAtMost(centerRect.height)
+        val panelsRect = centerRect.copy(top = centerRect.top + headerHeight, height = centerRect.height - headerHeight)
         val sectionsSideBySide = grid.axis == CenterAxis.HORIZONTAL
         val sectionRects = splitRect(
-            rect = centerRect,
+            rect = panelsRect,
             alongWidth = sectionsSideBySide,
             splitFraction = grid.splitFraction,
             minimumLengths = grid.sections.map { section -> section.minimumLength(grid.axis, isAlongGridAxis = true) },

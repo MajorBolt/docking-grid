@@ -170,6 +170,8 @@ private val DockLayoutOperation.movedDockableId: DockableId?
         is DockLayoutOperation.ArrangeCenter,
         is DockLayoutOperation.ResizeCenterSplit,
         DockLayoutOperation.ResetCenterSplits,
+        is DockLayoutOperation.SetGroupHeaderStyle,
+        is DockLayoutOperation.SetCenterHeaderAutoHide,
         -> null
     }
 

@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -115,7 +116,8 @@ class MaterialCenterGridUiTest {
         waitForIdle()
         val highlight = onNodeWithTag(DockHostTestTags.HIGHLIGHT).getUnclippedBoundsInRoot()
         assertEquals(408.dp, highlight.left)
-        assertEquals(454.dp, highlight.top, "The lower half of the center, below the new divider")
+        // Below the grid header (0..28): 28 + (900 − 28 − 8) / 2 + 8 = 468.
+        assertEquals(468.dp, highlight.top, "The lower half of the center, below the new divider")
 
         onNodeWithTag(DockHostTestTags.HOST).performMouseInput { release() }
         waitForIdle()
@@ -187,18 +189,20 @@ class MaterialCenterGridUiTest {
     }
 
     @Test
-    fun theOptionsMenuLocksAndResetsTheCenterDividers() = runDesktopComposeUiTest(width = 1600, height = 900) {
+    fun theCenterHeaderLocksAndResetsTheDividers() = runDesktopComposeUiTest(width = 1600, height = 900) {
         val resizedState = assertIs<DockStateTransitionResult.Applied>(
             sideBySideState().applyingOperation(DockLayoutOperation.ResizeCenterSplit(null, 0.25f), landscape, desktop),
         ).state
         val recorder = setDockHost(resizedState)
 
-        openOptionsMenuOfTheCenterPanelAt(rightOf = 1000f)
+        onNodeWithTag(MaterialCenterLayoutTestTags.CENTER_OPTIONS).performClick()
+        waitForIdle()
         onNodeWithTag(MaterialCenterLayoutTestTags.LOCK_DIVIDERS).performClick()
         waitForIdle()
         assertFalse(recorder.centerSplitsResizable)
 
-        openOptionsMenuOfTheCenterPanelAt(rightOf = 1000f)
+        onNodeWithTag(MaterialCenterLayoutTestTags.CENTER_OPTIONS).performClick()
+        waitForIdle()
         onNodeWithTag(MaterialCenterLayoutTestTags.RESET_DIVIDERS).performClick()
         waitForIdle()
         assertEquals<List<DockLayoutOperation>>(listOf(DockLayoutOperation.ResetCenterSplits), recorder.appliedOperations)
@@ -207,14 +211,32 @@ class MaterialCenterGridUiTest {
     }
 
     @Test
+    fun theCenterHeaderAppearsWithTwoPanelsAndTakesTheLayoutButtonAlong() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val recorder = setDockHost(stateWithoutRight)
+        onNodeWithTag(DockHostTestTags.CENTER_HEADER).assertDoesNotExist()
+        assertEquals(1, onAllNodesWithTag(MaterialCenterLayoutTestTags.LAYOUT_BUTTON).fetchSemanticsNodes().size, "In the only panel's header")
+
+        recorder.committedState = sideBySideState()
+        waitForIdle()
+
+        val headerBounds = onNodeWithTag(DockHostTestTags.CENTER_HEADER).getUnclippedBoundsInRoot()
+        assertEquals(408.dp, headerBounds.left)
+        assertEquals(28.dp, headerBounds.bottom - headerBounds.top)
+        val layoutButtons = onAllNodesWithTag(MaterialCenterLayoutTestTags.LAYOUT_BUTTON).fetchSemanticsNodes()
+        assertEquals(1, layoutButtons.size, "Only the center header has it")
+        assertTrue(layoutButtons.single().boundsInRoot.bottom <= 28f)
+    }
+
+    @Test
     fun droppingInTheMiddleOfAnotherCenterPanelSwapsThem() = runDesktopComposeUiTest(width = 1600, height = 900) {
-        // GameControls 408..1000, Scenes 1008..1600; drag GameControls by its header into the middle of Scenes.
+        // GameControls 408..1000, Scenes 1008..1600, below the grid header (0..28); drag GameControls by its header
+        // (from y 28) into the middle of Scenes.
         val recorder = setDockHost(sideBySideState())
 
         onNodeWithTag(DockHostTestTags.HOST).performMouseInput {
-            moveTo(Offset(500f, 20f))
+            moveTo(Offset(500f, 46f))
             press()
-            moveTo(Offset(530f, 40f))
+            moveTo(Offset(530f, 70f))
             moveTo(Offset(1304f, 450f))
         }
         waitForIdle()
@@ -226,13 +248,5 @@ class MaterialCenterGridUiTest {
         assertEquals<List<DockLayoutOperation>>(listOf(DockLayoutOperation.SwapDockables(GameControls, Scenes)), recorder.appliedOperations)
         val panels = recorder.committedState.profile(landscape).layout.center.panels
         assertEquals(listOf(listOf(Scenes), listOf(GameControls)), panels.map { panel -> panel.group?.dockableIds.orEmpty() })
-    }
-
-    /** Opens the "⋮" menu of the center panel whose header lies right of [rightOf]. */
-    private fun ComposeUiTest.openOptionsMenuOfTheCenterPanelAt(rightOf: Float) {
-        val optionsButtons = onAllNodesWithText("⋮").fetchSemanticsNodes()
-        val optionsIndex = optionsButtons.indexOfFirst { node -> node.boundsInRoot.left > rightOf }
-        onAllNodesWithText("⋮")[optionsIndex].performClick()
-        waitForIdle()
     }
 }

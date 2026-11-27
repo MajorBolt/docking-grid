@@ -208,6 +208,14 @@ MaterialDockHost(
 
 Set `DockingCapabilities(isCenterGridEnabled = false)` to keep a single center group.
 
+### Header styles
+
+Every group can show its header as a row at the top (default), as a vertical strip on its outer side with one icon
+tab per dockable, and hidden until hovered (`GroupHeaderStyle`, chosen in the Material options menu). Pass
+`dockableIcon` to `MaterialDockHost` to draw the icons; without it the strip shows the first letter of each title.
+The center grid's own header (with two or more panels) can auto-hide as well; by default that also hides the
+panels' headers (`DockingMetrics(centerHeaderHidesPanelHeaders = false)` lets each panel decide).
+
 ### Capabilities
 
 `DockingCapabilities` limits the structure, for example for a tablet: whether docks may be created inside the

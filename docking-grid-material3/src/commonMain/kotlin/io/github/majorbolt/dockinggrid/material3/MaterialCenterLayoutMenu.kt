@@ -51,6 +51,8 @@ public object MaterialCenterLayoutTestTags {
     public const val LAYOUT_BUTTON: String = "dock_center_layout_button"
     public const val LOCK_DIVIDERS: String = "dock_center_lock_dividers"
     public const val RESET_DIVIDERS: String = "dock_center_reset_dividers"
+    public const val CENTER_OPTIONS: String = "dock_center_options"
+    public const val AUTO_HIDE_CENTER_HEADER: String = "dock_center_auto_hide_header"
 
     public fun preset(preset: CenterPreset): String = "dock_center_preset_${preset.name}"
 }

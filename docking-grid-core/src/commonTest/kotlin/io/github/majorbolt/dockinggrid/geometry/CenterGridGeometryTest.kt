@@ -30,7 +30,8 @@ import kotlin.test.assertTrue
 /**
  * A center-only layout in 1600 × 900 dp with 8 dp dividers. The 2×2 grid has the columns [Scenes above Players] and
  * [GameControls above StreamInfo]: evenly split, each column is 796 wide and each panel 446 high, so
- * a = (0, 0), b = (804, 0), c = (0, 454), d = (804, 454). A panel header is 36 dp high.
+ * a = (0, 0), b = (804, 0), c = (0, 454), d = (804, 454). A panel header is 36 dp high. The grid header is left out
+ * ([noGridHeader]) so the split positions stay simple; [CenterGridHeaderTest] covers it.
  */
 class CenterGridGeometryTest {
 
@@ -59,11 +60,13 @@ class CenterGridGeometryTest {
         ),
     )
 
-    private fun geometryOf(layout: DockLayout, metrics: DockingMetrics = DockingMetrics()) =
+    private val noGridHeader = DockingMetrics(centerHeaderHeightDp = 0f)
+
+    private fun geometryOf(layout: DockLayout, metrics: DockingMetrics = noGridHeader) =
         calculateDockGeometry(layout, contentSize, TestDockables.catalog, metrics)
 
     private fun targetAt(layout: DockLayout, horizontalPosition: Float, verticalPosition: Float, capabilities: DockingCapabilities = desktop) =
-        resolveDropTarget(layout, geometryOf(layout), horizontalPosition, verticalPosition, capabilities, landscape)
+        resolveDropTarget(layout, geometryOf(layout), horizontalPosition, verticalPosition, capabilities, landscape, noGridHeader)
 
     @Test
     fun aTwoByTwoGridDividesTheCenterEvenly() {
@@ -94,7 +97,7 @@ class CenterGridGeometryTest {
         assertEquals(398f, resized.centerPanelRects.getValue("a").width)
         assertEquals(669f, resized.centerPanelRects.getValue("b").height)
 
-        val locked = DockingMetrics(centerSplitsResizable = false)
+        val locked = noGridHeader.copy(centerSplitsResizable = false)
         val lockedGeometry = geometryOf(resizedLayout, locked)
         assertEquals(resized.centerPanelRects, lockedGeometry.centerPanelRects)
         assertTrue(lockedGeometry.dividers.filter { divider -> divider.target is DividerTarget.CenterSplit }.none { divider -> divider.isResizable })
@@ -105,7 +108,7 @@ class CenterGridGeometryTest {
     @Test
     fun minimumSizesAddUpAlongEachSplit() {
         // Widths: max(Scenes 220, Players 220) + 8 + max(GameControls 320, StreamInfo 240); heights: max(200 + 8 + 200, 200 + 8 + 180).
-        assertEquals(DockSize(widthDp = 548f, heightDp = 408f), grid2x2().minimumContentSize(TestDockables.catalog))
+        assertEquals(DockSize(widthDp = 548f, heightDp = 408f), grid2x2().minimumContentSize(TestDockables.catalog, noGridHeader))
     }
 
     @Test
@@ -117,16 +120,16 @@ class CenterGridGeometryTest {
 
         assertEquals(
             DockLayoutOperation.ResizeCenterSplit(null, 896f / 1592f),
-            resizeOperationFor(layout, mainDivider, 100f, contentSize, TestDockables.catalog),
+            resizeOperationFor(layout, mainDivider, 100f, contentSize, TestDockables.catalog, noGridHeader),
         )
         assertEquals(
             DockLayoutOperation.ResizeCenterSplit(null, 220f / 1592f),
-            resizeOperationFor(layout, mainDivider, -10_000f, contentSize, TestDockables.catalog),
+            resizeOperationFor(layout, mainDivider, -10_000f, contentSize, TestDockables.catalog, noGridHeader),
             "The first column keeps its minimum width",
         )
         assertEquals(
             DockLayoutOperation.ResizeCenterSplit(1, (892f - 180f) / 892f),
-            resizeOperationFor(layout, secondColumnDivider, 10_000f, contentSize, TestDockables.catalog),
+            resizeOperationFor(layout, secondColumnDivider, 10_000f, contentSize, TestDockables.catalog, noGridHeader),
             "StreamInfo keeps its minimum height",
         )
     }
@@ -169,10 +172,10 @@ class CenterGridGeometryTest {
     @Test
     fun droppingInTheMiddleSwapsTheTwoPanelsInThePreview() {
         val layout = grid2x2()
-        val dragBase = liftedDragBase(layout, Scenes, contentSize, TestDockables.catalog)
+        val dragBase = liftedDragBase(layout, Scenes, contentSize, TestDockables.catalog, noGridHeader)
 
         // The middle of d (804..1600 × 454..900, body from 490).
-        val preview = assertNotNull(resolveDropPreview(DockProfile(layout), dragBase, 1202f, 700f, desktop, landscape, TestDockables.catalog))
+        val preview = assertNotNull(resolveDropPreview(DockProfile(layout), dragBase, 1202f, 700f, desktop, landscape, TestDockables.catalog, noGridHeader))
 
         assertEquals(DropTarget.Swap(StreamInfo), preview.target)
         assertEquals(DockLayoutOperation.SwapDockables(Scenes, StreamInfo), preview.operation)
@@ -185,9 +188,9 @@ class CenterGridGeometryTest {
     fun aDockableFromOutsideTheHostCannotSwap() {
         val layout = grid2x2()
         // AudioMixer is not placed: dragged in from a toolbar, for example.
-        val dragBase = liftedDragBase(layout, AudioMixer, contentSize, TestDockables.catalog)
+        val dragBase = liftedDragBase(layout, AudioMixer, contentSize, TestDockables.catalog, noGridHeader)
 
-        assertNull(resolveDropPreview(DockProfile(layout), dragBase, 1202f, 700f, desktop, landscape, TestDockables.catalog))
+        assertNull(resolveDropPreview(DockProfile(layout), dragBase, 1202f, 700f, desktop, landscape, TestDockables.catalog, noGridHeader))
     }
 
     @Test
@@ -206,10 +209,10 @@ class CenterGridGeometryTest {
     fun liftingTheOnlyDockableOfAPanelAllowsSplittingWhatRemains() {
         val layout = grid2x2()
         val profile = DockProfile(layout)
-        val dragBase = liftedDragBase(layout, StreamInfo, contentSize, TestDockables.catalog)
+        val dragBase = liftedDragBase(layout, StreamInfo, contentSize, TestDockables.catalog, noGridHeader)
 
         // Top triangle of b's body (b: 804..1600 × 36..446): with StreamInfo lifted, b's column has a single panel.
-        val preview = assertNotNull(resolveDropPreview(profile, dragBase, 1202f, 100f, desktop, landscape, TestDockables.catalog))
+        val preview = assertNotNull(resolveDropPreview(profile, dragBase, 1202f, 100f, desktop, landscape, TestDockables.catalog, noGridHeader))
 
         assertEquals(DropTarget.SplitCenterPanel("b", DockSide.TOP), preview.target)
         val previewColumn = preview.layout.center.sections[1].panels.map { panel -> panel.group?.dockableIds?.single() }
@@ -226,12 +229,12 @@ class CenterGridGeometryTest {
                 listOf(io.github.majorbolt.dockinggrid.DockLane("right", 0.25f, listOf(TabGroup("mixer", listOf(AudioMixer))))),
             ),
         )
-        val dragBase = liftedDragBase(withLane, AudioMixer, contentSize, TestDockables.catalog)
+        val dragBase = liftedDragBase(withLane, AudioMixer, contentSize, TestDockables.catalog, noGridHeader)
         val geometry = dragBase.geometry
         val panelA = geometry.centerPanelRects.getValue("a")
 
         val preview = assertNotNull(
-            resolveDropPreview(DockProfile(withLane), dragBase, panelA.left + panelA.width / 2, panelA.bottom - 120f, desktop, landscape, TestDockables.catalog),
+            resolveDropPreview(DockProfile(withLane), dragBase, panelA.left + panelA.width / 2, panelA.bottom - 120f, desktop, landscape, TestDockables.catalog, noGridHeader),
         )
 
         assertIs<DropTarget.SplitCenterPanel>(preview.target)

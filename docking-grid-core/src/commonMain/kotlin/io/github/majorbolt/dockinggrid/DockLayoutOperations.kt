@@ -84,6 +84,17 @@ public sealed interface DockLayoutOperation {
     /** Sets every split of the center grid back to even. */
     public data object ResetCenterSplits : DockLayoutOperation
 
+    /** Changes how the header of the group [groupId] is shown. */
+    public data class SetGroupHeaderStyle(
+        val groupId: String,
+        val headerStyle: GroupHeaderStyle,
+    ) : DockLayoutOperation
+
+    /** Hides the grid header (shown with two or more center panels) until hovered, or shows it again. */
+    public data class SetCenterHeaderAutoHide(
+        val autoHides: Boolean,
+    ) : DockLayoutOperation
+
     /**
      * Exchanges the places of [dockableId] and [targetDockableId]: each takes the other's tab position in the other's
      * group, and a group that showed one of them shows the other afterwards. Both must be placed.
@@ -159,6 +170,17 @@ internal fun DockLayout.applyOperation(
         is DockLayoutOperation.ResizeCenterSplit -> resizeCenterSplit(operation)
         DockLayoutOperation.ResetCenterSplits -> DockOperationResult.Applied(copy(center = center.withEvenSplits()))
         is DockLayoutOperation.SwapDockables -> swapDockables(operation)
+        is DockLayoutOperation.SetGroupHeaderStyle -> {
+            if (findGroup(operation.groupId) == null) {
+                DockOperationResult.Rejected(DockRejectionReason.UNKNOWN_TARGET)
+            } else {
+                DockOperationResult.Applied(
+                    mapGroups { group -> if (group.id == operation.groupId) group.copy(headerStyle = operation.headerStyle) else group },
+                )
+            }
+        }
+        is DockLayoutOperation.SetCenterHeaderAutoHide ->
+            DockOperationResult.Applied(copy(center = center.copy(autoHidesHeader = operation.autoHides)))
         is DockLayoutOperation.ResizeLane -> resizeLane(operation)
         is DockLayoutOperation.ResizeGroups -> resizeGroups(operation)
     }

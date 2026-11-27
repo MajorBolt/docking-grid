@@ -18,6 +18,7 @@ import io.github.majorbolt.dockinggrid.applyOperation
 import io.github.majorbolt.dockinggrid.canSplitPanel
 import io.github.majorbolt.dockinggrid.mapPanels
 import io.github.majorbolt.dockinggrid.normalized
+import io.github.majorbolt.dockinggrid.verticalHeaderSide
 import io.github.majorbolt.dockinggrid.removingDockableKeepingContainers
 
 /** A place a dragged dockable can be dropped, independent of which dockable is dragged. */
@@ -154,20 +155,25 @@ internal fun resolveDropTarget(
     val groupHit = groupAt(layout, geometry, horizontalPosition, verticalPosition)
     if (groupHit?.group?.dockableIds?.isEmpty() == true) return DropTarget.Origin
     val hitGroup = groupHit?.group
-    val header = hitGroup?.headerGeometry(groupHit.rect, headerMetrics)
+    val header = hitGroup?.headerGeometry(
+        groupRect = groupHit.rect,
+        metrics = headerMetrics,
+        verticalSide = if (hitGroup.headerStyle.isVertical) layout.verticalHeaderSide(hitGroup.id) else null,
+    )
     if (hitGroup != null && header != null && header.rect.contains(horizontalPosition, verticalPosition)) {
-        return DropTarget.Tab(hitGroup.id, tabInsertionIndex(header.tabRects, horizontalPosition))
+        val tabIndex = if (header.isVertical) {
+            tabInsertionIndexVertical(header.tabRects, verticalPosition)
+        } else {
+            tabInsertionIndex(header.tabRects, horizontalPosition)
+        }
+        return DropTarget.Tab(hitGroup.id, tabIndex)
     }
 
     bands.firstOrNull { band -> band.rect.contains(horizontalPosition, verticalPosition) }?.let { band -> return band.target }
     if (groupHit == null) return null
     if (hitGroup == null) return groupHit.centerPanelId?.let(DropTarget::EmptyCenterPanel) ?: DropTarget.Center
 
-    val bodyRect = if (header == null) {
-        groupHit.rect
-    } else {
-        groupHit.rect.copy(top = header.rect.bottom, height = groupHit.rect.bottom - header.rect.bottom)
-    }
+    val bodyRect = header?.bodyOf(groupHit.rect) ?: groupHit.rect
     val laneContext = groupHit.laneContext
     if (laneContext == null) {
         val side = triangleSide(bodyRect, horizontalPosition, verticalPosition) ?: return null

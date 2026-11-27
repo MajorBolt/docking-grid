@@ -50,6 +50,12 @@ import io.github.majorbolt.dockinggrid.DockingCapabilities
 import io.github.majorbolt.dockinggrid.LayoutOrientation
 import io.github.majorbolt.dockinggrid.geometry.DividerTarget
 import io.github.majorbolt.dockinggrid.hasUnevenSplits
+import io.github.majorbolt.dockinggrid.isHeaderAutoHidden
+import io.github.majorbolt.dockinggrid.isHeaderAutoHideForcedByGrid
+import io.github.majorbolt.dockinggrid.verticalHeaderSide
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import io.github.majorbolt.dockinggrid.matchingPreset
 import io.github.majorbolt.dockinggrid.geometry.DockRect
 import io.github.majorbolt.dockinggrid.geometry.DockSize
@@ -71,6 +77,12 @@ public object DockHostTestTags {
     public fun emptyCenterPanel(panelId: String): String = "dock_empty_center_panel_$panelId"
 
     public fun divider(target: DividerTarget): String = "dock_divider_$target"
+
+    /** The center grid's header (shown with two or more center panels). */
+    public const val CENTER_HEADER: String = "dock_center_header"
+
+    /** The sliding header of a group whose header auto-hides. */
+    public fun autoHidingHeader(groupId: String): String = "dock_auto_hiding_header_$groupId"
 }
 
 /**
@@ -88,12 +100,16 @@ public object DockHostTestTags {
  * @param metrics sizes the layout calculation uses, such as the divider thickness.
  * @param tabStrip the tab strip of a group with more than one dockable. Each tab must use [DockGroupScope.dockTab].
  * @param header the header row of a group's selected dockable; the whole row is its drag handle.
+ * @param verticalHeader the header strip of a group whose header is vertical, with one tab per dockable marked with
+ *   [DockGroupScope.dockTab]; the whole strip is the drag handle of the selected dockable.
+ * @param centerHeader the header of the center grid while it holds two or more panels.
+ * @param dockableIcon draws the icon of a dockable, used by vertical headers; `null` when the host has no icons.
  * @param divider draws a divider inside the area the host reserves for it.
  * @param placeholder the empty center, an empty center panel and the slot of a dragged dockable, with the text to show.
  * @param dragLabel follows the pointer while a dockable is dragged, with its title.
  * @param dragController lets code outside the host drag dockables over it; see [DockDragController].
- * @param onCenterSplitsResizableChange when set, the chrome of center panels can lock and unlock the center dividers
- *   ([DockGroupScope.setCenterSplitsResizable]); the caller stores the choice and passes it back in [metrics].
+ * @param onCenterSplitsResizableChange when set, the center header can lock and unlock the center dividers
+ *   ([CenterGridScope.setSplitsResizable]); the caller stores the choice and passes it back in [metrics].
  * @param content renders the content of one dockable. Its composition is kept while the dockable moves.
  */
 @Composable
@@ -109,6 +125,9 @@ public fun DockHost(
     metrics: DockingMetrics = DockingMetrics(),
     tabStrip: @Composable DockGroupScope.() -> Unit = { BasicDockTabStrip() },
     header: @Composable DockGroupScope.() -> Unit = { BasicDockHeader() },
+    verticalHeader: @Composable DockGroupScope.() -> Unit = { BasicDockVerticalHeader() },
+    centerHeader: @Composable CenterGridScope.() -> Unit = { BasicCenterHeader() },
+    dockableIcon: (@Composable (DockableId) -> Unit)? = null,
     divider: @Composable (DockDividerState) -> Unit = { state -> BasicDockDivider(state) },
     placeholder: @Composable (text: String) -> Unit = { text -> BasicDockPlaceholder(text) },
     dragLabel: @Composable (title: String) -> Unit = { title -> BasicDockDragLabel(title) },
@@ -319,15 +338,24 @@ public fun DockHost(
                                     val updatedMetrics = headerMetrics.updatedWith(measurement)
                                     if (updatedMetrics != headerMetrics) headerMetrics = updatedMetrics
                                 },
-                                centerPreset = profile.layout.center.matchingPreset
-                                    ?.takeIf { capabilities.isCenterGridEnabled && displayedLayout.center.findPanelOf(group.id) != null },
+                                // With two or more panels the grid header offers the arrangements.
+                                centerPreset = profile.layout.center.matchingPreset?.takeIf {
+                                    capabilities.isCenterGridEnabled && !displayedLayout.center.hasHeader &&
+                                        displayedLayout.center.findPanelOf(group.id) != null
+                                },
                                 onArrangeCenter = { preset -> onApplyOperation(DockLayoutOperation.ArrangeCenter(preset)) },
-                                centerSplitsResizable = metrics.centerSplitsResizable,
-                                onCenterSplitsResizableChange = onCenterSplitsResizableChange,
-                                hasUnevenCenterSplits = profile.layout.center.hasUnevenSplits,
-                                onResetCenterSplits = { onApplyOperation(DockLayoutOperation.ResetCenterSplits) },
+                                headerPresentation = HeaderPresentation(
+                                    side = if (group.headerStyle.isVertical) displayedLayout.verticalHeaderSide(group.id) else null,
+                                    isAutoHidden = displayedLayout.isHeaderAutoHidden(group.id, metrics.centerHeaderHidesPanelHeaders),
+                                    isAutoHideForcedByGrid = displayedLayout.isHeaderAutoHideForcedByGrid(group.id, metrics.centerHeaderHidesPanelHeaders),
+                                    // Headers are drop targets for tabs, so a drag shows them all.
+                                    isForcedVisible = interaction is DockInteraction.DraggingDockable,
+                                ),
+                                onHeaderStyleChange = { headerStyle -> onApplyOperation(DockLayoutOperation.SetGroupHeaderStyle(group.id, headerStyle)) },
+                                dockableIcon = dockableIcon,
                                 tabStrip = tabStrip,
                                 header = header,
+                                verticalHeader = verticalHeader,
                                 content = { dockableId -> contentOf(dockableId)() },
                                 modifier = Modifier
                                     .placedAt(groupRect)
@@ -363,6 +391,40 @@ public fun DockHost(
                             propagateMinConstraints = true,
                         ) {
                             placeholder(style.strings.emptyCenterPanel)
+                        }
+                    }
+                }
+
+                val centerHeaderRect = displayedGeometry.centerHeaderRect
+                val centerPreset = displayedLayout.center.matchingPreset
+                if (centerHeaderRect != null && centerPreset != null && capabilities.isCenterGridEnabled) {
+                    val centerScope = HostCenterGridScope(
+                        preset = centerPreset,
+                        onArrangeCenter = { preset -> onApplyOperation(DockLayoutOperation.ArrangeCenter(preset)) },
+                        splitsResizable = metrics.centerSplitsResizable,
+                        onSplitsResizableChange = onCenterSplitsResizableChange,
+                        hasUnevenSplits = profile.layout.center.hasUnevenSplits,
+                        onResetSplits = { onApplyOperation(DockLayoutOperation.ResetCenterSplits) },
+                        autoHidesHeader = displayedLayout.center.autoHidesHeader,
+                        onAutoHidesHeaderChange = { autoHides -> onApplyOperation(DockLayoutOperation.SetCenterHeaderAutoHide(autoHides)) },
+                    )
+                    if (displayedLayout.center.autoHidesHeader) {
+                        // Only the top edge of the grid shows it, so the panels' own headers below stay reachable. It is no
+                        // drop target, so a drag does not show it.
+                        AutoHidingHeader(
+                            side = null,
+                            isForcedVisible = false,
+                            hoverZone = CENTER_HEADER_HOVER_ZONE,
+                            modifier = Modifier
+                                .absoluteOffset(x = centerHeaderRect.left.dp, y = centerHeaderRect.top.dp)
+                                .width(centerHeaderRect.width.dp)
+                                .testTag(DockHostTestTags.CENTER_HEADER),
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth().height(centerHeaderRect.height.dp)) { centerScope.centerHeader() }
+                        }
+                    } else {
+                        Box(modifier = Modifier.placedAt(centerHeaderRect).testTag(DockHostTestTags.CENTER_HEADER)) {
+                            centerScope.centerHeader()
                         }
                     }
                 }
@@ -456,6 +518,9 @@ private class PointerTracking {
 }
 
 private const val DRAG_LABEL_OFFSET_DP = 12f
+
+/** The top edge of the center grid that shows its auto-hidden header; below it the panels' headers take over. */
+private val CENTER_HEADER_HOVER_ZONE = 6.dp
 
 /** Merges a measured header into the metrics; tab widths of all dockables seen so far are kept. */
 private fun GroupHeaderMetrics.updatedWith(measurement: HeaderMeasurement): GroupHeaderMetrics = copy(

@@ -10,6 +10,7 @@ import io.github.majorbolt.dockinggrid.DockStateTransitionResult
 import io.github.majorbolt.dockinggrid.Dockable
 import io.github.majorbolt.dockinggrid.DockableCatalog
 import io.github.majorbolt.dockinggrid.DockableId
+import io.github.majorbolt.dockinggrid.GroupHeaderStyle
 import io.github.majorbolt.dockinggrid.DockingCapabilities
 import io.github.majorbolt.dockinggrid.LayoutOrientation
 import io.github.majorbolt.dockinggrid.PlacementMemory
@@ -176,6 +177,27 @@ class DockStateCodecTest {
         assertEquals(listOf(listOf(editor), emptyList(), listOf(console)), center.panelsInReadingOrder.map { panel -> panel.group?.dockableIds.orEmpty() })
         assertEquals(0.3f, center.splitFraction)
         assertEquals(0.6f, center.sections[1].splitFraction)
+    }
+
+    @Test
+    fun headerStylesSurviveTheRoundTripAndDefaultWhenMissing() {
+        val state = defaultWindowDockState(catalog, desktop)
+        val explorerGroupId = state.profile(LayoutOrientation.LANDSCAPE).layout.findGroupOf(explorer)!!.id
+        val styled = state
+            .applyOrFail(DockLayoutOperation.SetGroupHeaderStyle(explorerGroupId, GroupHeaderStyle(isVertical = true, autoHides = true)), LayoutOrientation.LANDSCAPE)
+            .applyOrFail(DockLayoutOperation.SetCenterHeaderAutoHide(true), LayoutOrientation.LANDSCAPE)
+
+        val decoded = assertIs<DockStateDecodeResult.Decoded>(codec.decode(codec.encode(styled))).state
+        assertEquals(styled, decoded)
+
+        // A schema-4 document written before header styles existed reads with the defaults.
+        val olderDocument = """
+            { "schemaVersion": 4, "openDockableIds": ["editor"], "profiles": { "LANDSCAPE": { "layout": { "center": { "sections": [
+                { "panels": [ { "id": "panel-1", "group": { "id": "group-1", "dockableIds": ["editor"] } } ] } ] } } } } }
+        """.trimIndent()
+        val layout = assertIs<DockStateDecodeResult.Decoded>(codec.decode(olderDocument)).state.profile(LayoutOrientation.LANDSCAPE).layout
+        assertEquals(GroupHeaderStyle(), layout.center.groups.single().headerStyle)
+        assertFalse(layout.center.autoHidesHeader)
     }
 
     /**
