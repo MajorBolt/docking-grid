@@ -107,10 +107,13 @@ public enum class CenterAxis {
  *
  * @property group the tab group shown in the panel, or `null` for an empty panel created by a [CenterPreset]
  * that waits for a dockable to be dropped in. A panel whose group loses its last dockable is removed.
+ * @property headerStyle for an empty panel: the header style the group gets that is created in it, remembered from
+ * the panel that was at this position before ([CenterGrid.rememberedHeaderStyles]); `null` when there is none.
  */
 public data class CenterPanel(
     val id: String,
     val group: TabGroup? = null,
+    val headerStyle: GroupHeaderStyle? = null,
 )
 
 /**
@@ -131,12 +134,16 @@ public data class CenterSection(
  * @property splitFraction share of the center's length along [axis] (without the divider) that the first section takes.
  * @property autoHidesHeader the grid header (shown with two or more panels) is hidden and slides in on hover, pushing
  * the panels down while it is shown; see [isHeaderAutoHidden] for its effect on the panels' headers.
+ * @property rememberedHeaderStyles the header style last seen at each position (reading order, 0 = top left) when
+ * the center was rearranged, for the positions whose style was not the default. A panel that a [CenterPreset] adds at
+ * such a position gets that style, so a panel style survives switching to a smaller arrangement and back.
  */
 public data class CenterGrid(
     val axis: CenterAxis = CenterAxis.HORIZONTAL,
     val sections: List<CenterSection> = emptyList(),
     val splitFraction: Float = 0.5f,
     val autoHidesHeader: Boolean = false,
+    val rememberedHeaderStyles: Map<Int, GroupHeaderStyle> = emptyMap(),
 ) {
     /** The grid has its own header while it holds two or more panels. */
     val hasHeader: Boolean get() = panels.size >= 2

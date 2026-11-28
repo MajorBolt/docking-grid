@@ -22,6 +22,9 @@ All notable changes to Docking Grid are documented here. The project follows [Se
   - A group created for a moved dockable takes the header style of the group it came from, and the style of a
     closed group is remembered for reopening (`PlacementMemory.headerStyle`, stored as well); a dockable moved into
     an existing group takes that group's style.
+  - The center grid remembers the header style of each position when it is rearranged
+    (`CenterGrid.rememberedHeaderStyles`); an empty panel a preset adds there gets it (`CenterPanel.headerStyle`), and
+    a dockable dropped into that panel takes it.
   - An auto-hidden group header lies over the content: its background is transparent and only its texts, icons and
     buttons are backed, semi-transparently (`DockGroupScope.isHeaderOverlay`). A revealed center grid header instead
     pushes the panels down (`calculateDockGeometry(centerHeaderRevealFraction)`). `KeepHeaderVisible` keeps a

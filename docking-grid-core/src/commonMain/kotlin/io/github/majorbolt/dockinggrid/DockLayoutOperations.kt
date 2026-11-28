@@ -159,6 +159,13 @@ internal fun DockLayout.applyOperation(
     val result = applyStructuralOperation(operation, orientation, capabilities, newLaneExtentFraction, reservedIds)
     val movedDockableId = operation.groupCreatingDockableId ?: return result
     if (result !is DockOperationResult.Applied) return result
+    // An empty center panel that remembers the style of its position gives that style to the dockable dropped in.
+    val targetPanel = when (operation) {
+        is DockLayoutOperation.MoveToCenterPanel -> center.findPanel(operation.panelId)
+        is DockLayoutOperation.MoveToCenter -> center.defaultTargetPanel
+        else -> null
+    }
+    if (targetPanel != null && targetPanel.group == null && targetPanel.headerStyle != null) return result
     val headerStyle = findGroupOf(movedDockableId)?.headerStyle ?: rememberedHeaderStyle(movedDockableId) ?: return result
     val newGroup = result.layout.findGroupOf(movedDockableId)
         ?.takeIf { group -> findGroup(group.id) == null && group.dockableIds == listOf(movedDockableId) }

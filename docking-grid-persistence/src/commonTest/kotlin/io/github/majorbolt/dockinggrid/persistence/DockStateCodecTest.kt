@@ -190,6 +190,18 @@ class DockStateCodecTest {
         val decoded = assertIs<DockStateDecodeResult.Decoded>(codec.decode(codec.encode(styled))).state
         assertEquals(styled, decoded)
 
+        // Styles remembered per center position, and by an empty panel, survive storage as well.
+        val centerPanelGroupId = styled.profile(LayoutOrientation.LANDSCAPE).layout.center.groups.single().id
+        val withEmptyStyledPanel = styled
+            .applyOrFail(DockLayoutOperation.ArrangeCenter(CenterPreset.SIDE_BY_SIDE), LayoutOrientation.LANDSCAPE)
+            .applyOrFail(DockLayoutOperation.SetGroupHeaderStyle(centerPanelGroupId, GroupHeaderStyle(isVertical = true)), LayoutOrientation.LANDSCAPE)
+            .applyOrFail(DockLayoutOperation.ArrangeCenter(CenterPreset.SINGLE), LayoutOrientation.LANDSCAPE)
+            .applyOrFail(DockLayoutOperation.ArrangeCenter(CenterPreset.STACKED), LayoutOrientation.LANDSCAPE)
+        assertEquals(
+            withEmptyStyledPanel,
+            assertIs<DockStateDecodeResult.Decoded>(codec.decode(codec.encode(withEmptyStyledPanel))).state,
+        )
+
         // The style of a closed dock is remembered for reopening, also across storage.
         val closed = styled.closingDockable(explorer)
         val decodedClosed = assertIs<DockStateDecodeResult.Decoded>(codec.decode(codec.encode(closed))).state

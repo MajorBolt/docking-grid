@@ -86,6 +86,25 @@ class HeaderStylesTest {
     }
 
     @Test
+    fun aPositionKeepsItsHeaderStyleWhenTheGridShrinksAndGrowsAgain() {
+        // The reported case: bottom right (StreamInfo) vertical; three panels (the bottom ones merge into tabs); 2×2
+        // again; then a dock dragged into the empty bottom-right panel.
+        val layout = grid2x2().applyOrFail(DockLayoutOperation.SetGroupHeaderStyle("d-group", vertical))
+
+        val three = layout.applyOrFail(DockLayoutOperation.ArrangeCenter(CenterPreset.THREE_FULL_BOTTOM))
+        assertEquals(listOf(Players, StreamInfo), three.center.panelsInReadingOrder.last().group?.dockableIds, "Merged into tabs")
+
+        val fourAgain = three.applyOrFail(DockLayoutOperation.ArrangeCenter(CenterPreset.GRID_2X2))
+        val bottomRight = fourAgain.center.panelsInReadingOrder.last()
+        assertEquals(null, bottomRight.group)
+        assertEquals(vertical, bottomRight.headerStyle, "The empty panel remembers the style of its position")
+
+        val filled = fourAgain.applyOrFail(DockLayoutOperation.MoveToCenterPanel(StreamInfo, bottomRight.id))
+        assertEquals(vertical, filled.findGroupOf(StreamInfo)?.headerStyle, "Not the normal header of the tabs it came from")
+        assertEquals(GroupHeaderStyle(), filled.findGroupOf(Players)?.headerStyle)
+    }
+
+    @Test
     fun theGridKeepsItsAutoHideWhileItChanges() {
         val layout = grid2x2().applyOrFail(DockLayoutOperation.SetCenterHeaderAutoHide(true))
         assertTrue(layout.center.autoHidesHeader)

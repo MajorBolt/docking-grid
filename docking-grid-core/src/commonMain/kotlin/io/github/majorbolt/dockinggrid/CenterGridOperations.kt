@@ -46,8 +46,11 @@ internal fun CenterPreset.arrange(panels: List<CenterPanel>): CenterGrid {
 }
 
 /** Builds the arrangement of this preset from [panels] (see above), keeping the grid header's [autoHidesHeader]. */
-internal fun CenterPreset.arrange(panels: List<CenterPanel>, autoHidesHeader: Boolean): CenterGrid =
-    arrange(panels).copy(autoHidesHeader = autoHidesHeader)
+internal fun CenterPreset.arrange(
+    panels: List<CenterPanel>,
+    autoHidesHeader: Boolean,
+    rememberedHeaderStyles: Map<Int, GroupHeaderStyle> = emptyMap(),
+): CenterGrid = arrange(panels).copy(autoHidesHeader = autoHidesHeader, rememberedHeaderStyles = rememberedHeaderStyles)
 
 internal fun DockLayout.splitCenterPanel(
     operation: DockLayoutOperation.SplitCenterPanel,
@@ -101,9 +104,13 @@ internal fun DockLayout.moveToCenterPanel(
         }
         return DockOperationResult.Applied(updatedLayout.normalized())
     }
-    val newGroup = TabGroup(id = idGenerator.nextId(GROUP_ID_PREFIX), dockableIds = listOf(operation.dockableId))
+    val newGroup = TabGroup(
+        id = idGenerator.nextId(GROUP_ID_PREFIX),
+        dockableIds = listOf(operation.dockableId),
+        headerStyle = panel.headerStyle ?: GroupHeaderStyle(),
+    )
     val updatedCenter = layoutWithoutDockable.center.mapPanels { centerPanel ->
-        if (centerPanel.id == operation.panelId) centerPanel.copy(group = newGroup) else centerPanel
+        if (centerPanel.id == operation.panelId) centerPanel.copy(group = newGroup, headerStyle = null) else centerPanel
     }
     return DockOperationResult.Applied(layoutWithoutDockable.copy(center = updatedCenter).normalized())
 }
@@ -111,7 +118,8 @@ internal fun DockLayout.moveToCenterPanel(
 /**
  * Rearranges the center as [DockLayoutOperation.ArrangeCenter.preset]. The existing groups keep their order (reading
  * order) and fill the new panels; groups beyond the preset's panel count become tabs of its last panel; remaining
- * panels are empty. Existing panel identifiers are reused in reading order.
+ * panels are empty. Existing panel identifiers are reused in reading order. The header style of every position is
+ * remembered ([CenterGrid.rememberedHeaderStyles]); an empty panel gets the style remembered for its position.
  */
 internal fun DockLayout.arrangeCenter(
     operation: DockLayoutOperation.ArrangeCenter,
@@ -130,13 +138,22 @@ internal fun DockLayout.arrangeCenter(
         val lastGroup = assignedGroups.last() ?: surplusGroups.first()
         assignedGroups[panelCount - 1] = lastGroup.copy(dockableIds = lastGroup.dockableIds + surplusGroups.flatMap { group -> group.dockableIds })
     }
+    val stylesByPosition = center.rememberedHeaderStyles.toMutableMap()
+    existingPanels.forEachIndexed { position, panel ->
+        val positionStyle = panel.group?.headerStyle ?: panel.headerStyle
+        if (positionStyle == null || positionStyle == GroupHeaderStyle()) stylesByPosition.remove(position) else stylesByPosition[position] = positionStyle
+    }
     val panels = (0 until panelCount).map { panelIndex ->
+        val assignedGroup = assignedGroups[panelIndex]
         CenterPanel(
             id = existingPanels.getOrNull(panelIndex)?.id ?: idGenerator.nextId(PANEL_ID_PREFIX),
-            group = assignedGroups[panelIndex],
+            group = assignedGroup,
+            headerStyle = if (assignedGroup == null) stylesByPosition[panelIndex] else null,
         )
     }
-    return DockOperationResult.Applied(copy(center = operation.preset.arrange(panels, center.autoHidesHeader)).normalized())
+    return DockOperationResult.Applied(
+        copy(center = operation.preset.arrange(panels, center.autoHidesHeader, stylesByPosition)).normalized(),
+    )
 }
 
 /** This grid with every split even. */
@@ -223,8 +240,8 @@ internal fun CenterGrid.normalized(normalizeGroup: (TabGroup) -> TabGroup?): Cen
         onlySection != null -> CenterGrid(axis = CenterAxis.HORIZONTAL, sections = normalizedSections)
         else -> CenterGrid(axis = axis, sections = normalizedSections, splitFraction = splitFraction.clampedSplitFraction())
     }
-    // The grid header's choice is kept while the grid shrinks and grows again.
-    return normalizedGrid.copy(autoHidesHeader = autoHidesHeader)
+    // The grid header's choice and the remembered panel styles are kept while the grid shrinks and grows again.
+    return normalizedGrid.copy(autoHidesHeader = autoHidesHeader, rememberedHeaderStyles = rememberedHeaderStyles)
 }
 
 private fun Float.clampedSplitFraction(): Float =

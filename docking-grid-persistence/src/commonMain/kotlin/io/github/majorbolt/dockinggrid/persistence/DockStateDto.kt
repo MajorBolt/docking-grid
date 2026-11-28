@@ -36,6 +36,15 @@ internal data class CenterGridDto(
     val splitFraction: Float = 0.5f,
     val sections: List<CenterSectionDto> = emptyList(),
     val autoHidesHeader: Boolean = false,
+    val rememberedHeaderStyles: List<PositionHeaderStyleDto> = emptyList(),
+)
+
+@Serializable
+internal data class PositionHeaderStyleDto(
+    /** Reading order, 0 = top left. */
+    val position: Int,
+    val hasVerticalHeader: Boolean = false,
+    val autoHidesHeader: Boolean = false,
 )
 
 @Serializable
@@ -49,6 +58,9 @@ internal data class CenterPanelDto(
     val id: String,
     /** `null` for an empty panel. */
     val group: TabGroupDto? = null,
+    /** The remembered header style of an empty panel; `null` (both) when none is remembered. */
+    val hasVerticalHeader: Boolean? = null,
+    val autoHidesHeader: Boolean? = null,
 )
 
 @Serializable

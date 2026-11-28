@@ -45,10 +45,20 @@ private fun CenterGrid.toDto(): CenterGridDto = CenterGridDto(
     axis = axis.name,
     splitFraction = splitFraction,
     autoHidesHeader = autoHidesHeader,
+    rememberedHeaderStyles = rememberedHeaderStyles.entries.sortedBy { (position, _) -> position }.map { (position, style) ->
+        PositionHeaderStyleDto(position = position, hasVerticalHeader = style.isVertical, autoHidesHeader = style.autoHides)
+    },
     sections = sections.map { section ->
         CenterSectionDto(
             splitFraction = section.splitFraction,
-            panels = section.panels.map { panel -> CenterPanelDto(id = panel.id, group = panel.group?.toDto()) },
+            panels = section.panels.map { panel ->
+                CenterPanelDto(
+                    id = panel.id,
+                    group = panel.group?.toDto(),
+                    hasVerticalHeader = panel.headerStyle?.isVertical,
+                    autoHidesHeader = panel.headerStyle?.autoHides,
+                )
+            },
         )
     },
 )
@@ -132,9 +142,17 @@ private fun CenterGridDto.toDomain(catalog: DockableCatalog): CenterGrid = Cente
     axis = CenterAxis.entries.firstOrNull { entry -> entry.name == axis } ?: CenterAxis.HORIZONTAL,
     splitFraction = splitFraction,
     autoHidesHeader = autoHidesHeader,
+    rememberedHeaderStyles = rememberedHeaderStyles.associate { styleDto ->
+        styleDto.position to GroupHeaderStyle(isVertical = styleDto.hasVerticalHeader, autoHides = styleDto.autoHidesHeader)
+    },
     sections = sections.mapNotNull { sectionDto ->
         val panels = sectionDto.panels.mapNotNull { panelDto ->
-            val groupDto = panelDto.group ?: return@mapNotNull CenterPanel(id = panelDto.id, group = null)
+            val panelStyle = if (panelDto.hasVerticalHeader == null && panelDto.autoHidesHeader == null) {
+                null
+            } else {
+                GroupHeaderStyle(isVertical = panelDto.hasVerticalHeader == true, autoHides = panelDto.autoHidesHeader == true)
+            }
+            val groupDto = panelDto.group ?: return@mapNotNull CenterPanel(id = panelDto.id, group = null, headerStyle = panelStyle)
             groupDto.toDomain(catalog)?.let { group -> CenterPanel(id = panelDto.id, group = group) }
         }
         if (panels.isEmpty()) null else CenterSection(panels = panels, splitFraction = sectionDto.splitFraction)
