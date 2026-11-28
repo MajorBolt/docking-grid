@@ -138,6 +138,30 @@ class MaterialHeaderStylesUiTest {
     }
 
     @Test
+    fun tabsThatDoNotFitScrollToTheSelectedOneAndWithTheWheel() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        // All five dockables as tabs of the LEFT group (400 dp wide): they do not fit beside the options button.
+        val allOpen = defaultWindowDockState(TestDockables.catalog, desktop)
+        val scenesGroupId = allOpen.groupIdOf(Scenes)
+        val withFiveTabs = listOf(StreamInfo, GameControls, Players, AudioMixer).fold(allOpen) { state, dockableId ->
+            state.applyOrFail(DockLayoutOperation.MoveToGroup(dockableId, scenesGroupId, tabIndex = 5))
+        }
+        setDockHost(withFiveTabs)
+        fun tabBounds(title: String) = onNode(hasText(title) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).getUnclippedBoundsInRoot()
+
+        // AudioMixer was added last and is selected: the row has scrolled to it, the first tab is cut off.
+        assertTrue(tabBounds("Audio Mixer").right <= 400.dp, "The selected tab is in view")
+        assertTrue(tabBounds("Scenes").left < 0.dp, "The first tab scrolled out on the left")
+
+        // Over the visible part of the tabs (the row itself is wider than the header).
+        onNodeWithTag(DockHostTestTags.HOST).performMouseInput {
+            moveTo(Offset(150f, 20f))
+            scroll(-20f)
+        }
+        waitForIdle()
+        assertTrue(tabBounds("Scenes").left >= 0.dp, "The wheel scrolls back to the start")
+    }
+
+    @Test
     fun anAutoHiddenHeaderSlidesInWhileHovered() = runDesktopComposeUiTest(width = 1600, height = 900) {
         val state = stateWithoutRight.withHeaderStyle(Scenes, GroupHeaderStyle(autoHides = true))
         setDockHost(state)

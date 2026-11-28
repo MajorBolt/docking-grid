@@ -15,6 +15,16 @@ import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -137,49 +147,108 @@ public fun DockGroupScope.MaterialDockHeader(
 }
 
 /**
- * Compact tabs for a header row: the titles side by side (scrolling when they do not fit), the selected one in the
- * primary color and underlined. Each is marked with [DockGroupScope.dockTab], so it can be dragged and dropped onto.
+ * Compact tabs for a header row: the titles side by side, the selected one in the primary color and underlined. Each
+ * is marked with [DockGroupScope.dockTab], so it can be dragged and dropped onto. When they do not fit, the row
+ * scrolls: with the mouse wheel (vertical or horizontal), and to the selected tab when the selection changes; a fade
+ * at an edge shows that more tabs lie beyond it.
  */
 @Composable
 public fun DockGroupScope.MaterialDockHeaderTabs(modifier: Modifier = Modifier) {
     val colorScheme = MaterialTheme.colorScheme
-    Row(
-        modifier = modifier.fillMaxHeight().horizontalScroll(rememberScrollState()),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        group.dockableIds.forEach { dockableId ->
-            val isSelected = dockableId == group.selectedDockableId
-            val textColor = if (isSelected) colorScheme.primary else colorScheme.onSurfaceVariant
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .dockTab(dockableId)
-                    .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
-                    .drawBehind {
-                        if (isSelected) {
-                            val indicatorHeight = 2.dp.toPx()
-                            drawLine(
-                                color = colorScheme.primary,
-                                start = Offset(0f, size.height - indicatorHeight / 2f),
-                                end = Offset(size.width, size.height - indicatorHeight / 2f),
-                                strokeWidth = indicatorHeight,
-                            )
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
+    val wheelStepPixels = with(LocalDensity.current) { TAB_WHEEL_STEP.toPx() }
+    val bringIntoViewRequesters = group.dockableIds.associateWith { remember { BringIntoViewRequester() } }
+    val selectedDockableId = group.selectedDockableId
+    // Also once the row is measured (its scroll range becomes known), and when it changes size; wheel scrolling
+    // leaves the range alone, so the row does not jump back while the user scrolls.
+    LaunchedEffect(selectedDockableId, scrollState.maxValue) {
+        bringIntoViewRequesters[selectedDockableId]?.bringIntoView()
+    }
+    // The header behind the row: the fades blend the cut-off tabs into it. Over the content there is no backdrop.
+    val fadeColor = colorScheme.surfaceVariant
+    Box(modifier = modifier.fillMaxHeight()) {
+        Row(
+            modifier = Modifier
+                .fillMaxHeight()
+                .horizontalScroll(scrollState)
+                .pointerInput(wheelStepPixels) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.type != PointerEventType.Scroll) continue
+                            val scrollDelta = event.changes.firstOrNull()?.scrollDelta ?: continue
+                            // A plain wheel scrolls vertically; across the tabs it means sideways.
+                            val delta = (if (scrollDelta.x != 0f) scrollDelta.x else scrollDelta.y) * wheelStepPixels
+                            if (delta != 0f) {
+                                coroutineScope.launch { scrollState.scrollBy(delta) }
+                                event.changes.forEach { change -> change.consume() }
+                            }
                         }
                     }
-                    .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = titleOf(dockableId),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = textColor,
-                    maxLines = 1,
-                    modifier = Modifier.overlayPart(isHeaderOverlay).padding(horizontal = 6.dp, vertical = 2.dp),
+                }
+                .testTag(MaterialDockTestTags.headerTabs(group.id)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            group.dockableIds.forEach { dockableId ->
+                val isSelected = dockableId == selectedDockableId
+                val textColor = if (isSelected) colorScheme.primary else colorScheme.onSurfaceVariant
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .bringIntoViewRequester(bringIntoViewRequesters.getValue(dockableId))
+                        .dockTab(dockableId)
+                        .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
+                        .drawBehind {
+                            if (isSelected) {
+                                val indicatorHeight = 2.dp.toPx()
+                                drawLine(
+                                    color = colorScheme.primary,
+                                    start = Offset(0f, size.height - indicatorHeight / 2f),
+                                    end = Offset(size.width, size.height - indicatorHeight / 2f),
+                                    strokeWidth = indicatorHeight,
+                                )
+                            }
+                        }
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = titleOf(dockableId),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = textColor,
+                        maxLines = 1,
+                        modifier = Modifier.overlayPart(isHeaderOverlay).padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+        if (!isHeaderOverlay) {
+            if (scrollState.canScrollBackward) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxHeight()
+                        .width(TAB_FADE_WIDTH)
+                        .background(Brush.horizontalGradient(listOf(fadeColor, fadeColor.copy(alpha = 0f)))),
+                )
+            }
+            if (scrollState.canScrollForward) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .fillMaxHeight()
+                        .width(TAB_FADE_WIDTH)
+                        .background(Brush.horizontalGradient(listOf(fadeColor.copy(alpha = 0f), fadeColor))),
                 )
             }
         }
     }
 }
+
+/** How far one notch of the mouse wheel scrolls the header tabs. */
+private val TAB_WHEEL_STEP = 40.dp
+private val TAB_FADE_WIDTH = 16.dp
 
 /**
  * The "⋮" button of a group with its options menu: "Close", the [menuItems] of the host, and the header options
@@ -264,6 +333,8 @@ public object MaterialDockTestTags {
     public fun options(groupId: String): String = "dock_options_$groupId"
 
     public fun verticalTab(dockableId: DockableId): String = "dock_vertical_tab_${dockableId.value}"
+
+    public fun headerTabs(groupId: String): String = "dock_header_tabs_$groupId"
 }
 
 /** Height of one entry of a dock menu: more compact than the Material default, like desktop menus. */
