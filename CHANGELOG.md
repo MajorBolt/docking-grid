@@ -23,6 +23,9 @@ All notable changes to Docking Grid are documented here. The project follows [Se
     buttons are backed, semi-transparently (`DockGroupScope.isHeaderOverlay`). A revealed center grid header instead
     pushes the panels down (`calculateDockGeometry(centerHeaderRevealFraction)`). `KeepHeaderVisible` keeps a
     header shown while a menu opened from it is open.
+  - `DockHost(tabsInHeader = true)` (used by `MaterialDockHost`): the header row shows the tabs of a group with several
+    dockables instead of a tab row above it (`DockGroupScope.showsTabsInHeader`, `MaterialDockHeaderTabs`,
+    `GroupHeaderMetrics.tabsInHeaderRow`); the options menu acts on the selected tab.
   - `docking-grid-persistence`: the styles are stored with defaults, so existing schema-4 documents still read.
 - Center grid: the center can hold one panel, two side by side or stacked, three (one full-length) or a 2×2 grid,
   each panel a tab group. **Breaking:** `DockLayout.centerGroup` is replaced by `DockLayout.center: CenterGrid`

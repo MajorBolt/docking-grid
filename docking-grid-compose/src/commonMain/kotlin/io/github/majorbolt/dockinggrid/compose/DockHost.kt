@@ -110,6 +110,8 @@ public object DockHostTestTags {
  *   [DockGroupScope.dockTab]; the whole strip is the drag handle of the selected dockable.
  * @param centerHeader the header of the center grid while it holds two or more panels.
  * @param dockableIcon draws the icon of a dockable, used by vertical headers; `null` when the host has no icons.
+ * @param tabsInHeader the [header] slot shows the tabs of a group with several dockables itself
+ *   ([DockGroupScope.showsTabsInHeader]) and [tabStrip] is not used; drop positions follow that layout.
  * @param divider draws a divider inside the area the host reserves for it.
  * @param placeholder the empty center, an empty center panel and the slot of a dragged dockable, with the text to show.
  * @param dragLabel follows the pointer while a dockable is dragged, with its title.
@@ -134,6 +136,7 @@ public fun DockHost(
     verticalHeader: @Composable DockGroupScope.() -> Unit = { BasicDockVerticalHeader() },
     centerHeader: @Composable CenterGridScope.() -> Unit = { BasicCenterHeader() },
     dockableIcon: (@Composable (DockableId) -> Unit)? = null,
+    tabsInHeader: Boolean = false,
     divider: @Composable (DockDividerState) -> Unit = { state -> BasicDockDivider(state) },
     placeholder: @Composable (text: String) -> Unit = { text -> BasicDockPlaceholder(text) },
     dragLabel: @Composable (title: String) -> Unit = { title -> BasicDockDragLabel(title) },
@@ -148,7 +151,7 @@ public fun DockHost(
             var interaction by remember { mutableStateOf<DockInteraction>(DockInteraction.Idle) }
             val pointerTracking = remember { PointerTracking() }
             // Header sizes do not depend on the rendered layout, so headers of the lifted drag layout can be calculated.
-            var headerMetrics by remember { mutableStateOf(GroupHeaderMetrics()) }
+            var headerMetrics by remember(tabsInHeader) { mutableStateOf(GroupHeaderMetrics(tabsInHeaderRow = tabsInHeader)) }
             val focusRequester = remember { FocusRequester() }
 
             val committedGeometry = remember(profile.layout, contentSize, catalog, metrics) {
@@ -369,6 +372,7 @@ public fun DockHost(
                                 ),
                                 onHeaderStyleChange = { headerStyle -> onApplyOperation(DockLayoutOperation.SetGroupHeaderStyle(group.id, headerStyle)) },
                                 dockableIcon = dockableIcon,
+                                tabsInHeader = tabsInHeader,
                                 tabStrip = tabStrip,
                                 header = header,
                                 verticalHeader = verticalHeader,

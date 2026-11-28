@@ -50,7 +50,8 @@ import io.github.majorbolt.dockinggrid.geometry.DockRect
  * What the tab strip and header slots of a [DockHost] can use to render one tab group.
  *
  * A group is laid out from top to bottom as: the tab strip (only when the group holds more than one dockable), the
- * header row of the selected dockable, and its content. With a vertical header ([headerSide] not `null`) the
+ * header row of the selected dockable, and its content. With [showsTabsInHeader] there is no tab strip: the header
+ * row shows the tabs itself. With a vertical header ([headerSide] not `null`) the
  * vertical header slot is a strip beside the content instead, with one icon tab per dockable. The host calculates
  * drop positions for every layout from this structure and the measured sizes, so custom chrome must keep it.
  */
@@ -75,6 +76,12 @@ public interface DockGroupScope {
 
     /** Rearranges the center as [preset]; the host commits this as a layout change. Only for center panels. */
     public fun arrangeCenter(preset: CenterPreset) {}
+
+    /**
+     * `true` when the header row shows the tabs of a group with several dockables (each marked with [dockTab]) and
+     * there is no tab strip; see [DockHost]'s `tabsInHeader`.
+     */
+    public val showsTabsInHeader: Boolean get() = false
 
     /** How this group's header is shown; see [setHeaderStyle]. */
     public val headerStyle: GroupHeaderStyle get() = group.headerStyle
@@ -158,6 +165,7 @@ internal fun DockGroupContainer(
     headerPresentation: HeaderPresentation,
     onHeaderStyleChange: (GroupHeaderStyle) -> Unit,
     dockableIcon: (@Composable (DockableId) -> Unit)?,
+    tabsInHeader: Boolean,
     tabStrip: @Composable DockGroupScope.() -> Unit,
     header: @Composable DockGroupScope.() -> Unit,
     verticalHeader: @Composable DockGroupScope.() -> Unit,
@@ -169,7 +177,8 @@ internal fun DockGroupContainer(
     val currentOnHeaderMeasured by rememberUpdatedState(onHeaderMeasured)
     val measurement = remember { HeaderCoordinates() }
     val selectedDockableId = group.selectedDockableId
-    val hasTabStrip = group.dockableIds.size > 1
+    val hasTabs = group.dockableIds.size > 1
+    val hasTabStrip = hasTabs && !tabsInHeader
     val isMeasured = headerPresentation.side == null && !headerPresentation.isAutoHidden
 
     fun reportHeader() {
@@ -181,7 +190,7 @@ internal fun DockGroupContainer(
             return DockRect(bounds.left / density, bounds.top / density, bounds.width / density, bounds.height / density)
         }
         val headerBounds = boundsOf(measurement.headerCoordinates) ?: return
-        val tabBounds = if (hasTabStrip) {
+        val tabBounds = if (hasTabs) {
             group.dockableIds.map { dockableId -> dockableId to (boundsOf(measurement.tabCoordinates[dockableId]) ?: return) }
         } else {
             emptyList()
@@ -190,8 +199,9 @@ internal fun DockGroupContainer(
         val tabRowBottom = tabBounds.maxOfOrNull { (_, bounds) -> bounds.bottom }
         currentOnHeaderMeasured(
             HeaderMeasurement(
-                topInsetDp = tabRowTop ?: headerBounds.top,
-                tabRowHeightDp = if (tabRowTop != null && tabRowBottom != null) tabRowBottom - tabRowTop else null,
+                // Tabs inside the header row do not start a row of their own.
+                topInsetDp = if (tabsInHeader) headerBounds.top else tabRowTop ?: headerBounds.top,
+                tabRowHeightDp = if (!tabsInHeader && tabRowTop != null && tabRowBottom != null) tabRowBottom - tabRowTop else null,
                 headerHeightDp = headerBounds.height,
                 tabStartDp = tabBounds.firstOrNull()?.second?.left,
                 tabWidthsDp = tabBounds.associate { (dockableId, bounds) -> dockableId to bounds.width },
@@ -210,6 +220,7 @@ internal fun DockGroupContainer(
         onHeaderStyleChange = onHeaderStyleChange,
         isHeaderAutoHideForcedByGrid = headerPresentation.isAutoHideForcedByGrid,
         isHeaderOverlay = headerPresentation.isAutoHidden,
+        showsTabsInHeader = tabsInHeader,
         headerSide = headerPresentation.side,
         dockableIcon = dockableIcon,
         onTabPositioned = { dockableId, coordinates ->
@@ -382,6 +393,7 @@ private class GroupScope(
     private val onHeaderStyleChange: (GroupHeaderStyle) -> Unit,
     override val isHeaderAutoHideForcedByGrid: Boolean,
     override val isHeaderOverlay: Boolean,
+    override val showsTabsInHeader: Boolean,
     override val headerSide: DockSide?,
     private val dockableIcon: (@Composable (DockableId) -> Unit)?,
     private val onTabPositioned: (DockableId, LayoutCoordinates) -> Unit,

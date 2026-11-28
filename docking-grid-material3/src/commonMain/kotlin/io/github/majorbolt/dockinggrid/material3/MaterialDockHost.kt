@@ -57,6 +57,7 @@ public fun MaterialDockHost(
         verticalHeader = { MaterialVerticalDockHeader(menuItems = dockableMenuItems) },
         centerHeader = { MaterialCenterHeader() },
         dockableIcon = dockableIcon,
+        tabsInHeader = true,
         divider = divider,
         placeholder = { text -> MaterialDockPlaceholder(text) },
         dragLabel = { title -> MaterialDockDragLabel(title) },

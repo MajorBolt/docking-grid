@@ -14,7 +14,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
@@ -118,6 +123,18 @@ class MaterialHeaderStylesUiTest {
         onNodeWithTag(MaterialDockTestTags.verticalTab(StreamInfo)).performClick()
         waitForIdle()
         assertEquals(DockLayoutOperation.SelectTab(StreamInfo), recorder.appliedOperations.last())
+    }
+
+    @Test
+    fun theTabsOfAGroupAreShownInItsHeaderRow() = runDesktopComposeUiTest(width = 1600, height = 900) {
+        val withTabs = stateWithoutRight.applyOrFail(DockLayoutOperation.MoveToGroup(StreamInfo, stateWithoutRight.groupIdOf(Scenes), 1))
+        setDockHost(withTabs)
+
+        val scenesTab = onNode(hasText("Scenes") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).getUnclippedBoundsInRoot()
+        val streamInfoTab = onNode(hasText("Stream Info") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).getUnclippedBoundsInRoot()
+        assertTrue(scenesTab.bottom <= 40.dp, "In the 36 dp header row, no tab row above it")
+        assertEquals(scenesTab.top, streamInfoTab.top, "Side by side")
+        assertEquals(1, onAllNodesWithText("Stream Info").fetchSemanticsNodes().size, "The title is not repeated beside the tabs")
     }
 
     @Test

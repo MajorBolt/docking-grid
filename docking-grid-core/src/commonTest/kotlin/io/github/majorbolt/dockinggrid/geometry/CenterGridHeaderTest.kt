@@ -76,6 +76,20 @@ class CenterGridHeaderTest {
     }
 
     @Test
+    fun tabsInTheHeaderRowMakeTheHeaderASingleRow() {
+        val group = TabGroup("tabs", listOf(Scenes, GameControls))
+        val groupRect = DockRect(0f, 0f, 400f, 400f)
+        val metrics = GroupHeaderMetrics(headerTopInsetDp = 2f, tabStartPaddingDp = 8f, tabWidthsDp = mapOf(Scenes to 80f, GameControls to 120f))
+
+        val separateRow = group.headerGeometry(groupRect, metrics)
+        assertEquals(2f + 48f + 36f, separateRow.rect.height, "Tab row above the header row")
+
+        val inHeader = group.headerGeometry(groupRect, metrics.copy(tabsInHeaderRow = true))
+        assertEquals(2f + 36f, inHeader.rect.height)
+        assertEquals(listOf(DockRect(8f, 2f, 80f, 36f), DockRect(88f, 2f, 120f, 36f)), inHeader.tabRects)
+    }
+
+    @Test
     fun aSingleCenterPanelHasNoGridHeader() {
         val single = DockLayout(center = CenterGrid.single(TabGroup("only", listOf(Scenes))))
         val geometry = geometryOf(single)

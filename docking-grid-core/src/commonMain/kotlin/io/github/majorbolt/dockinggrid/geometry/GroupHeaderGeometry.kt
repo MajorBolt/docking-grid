@@ -26,6 +26,11 @@ public data class GroupHeaderMetrics(
     val verticalHeaderWidthDp: Float = 36f,
     /** Height of one icon tab in a vertical header; the tabs are stacked from the strip's top without gaps. */
     val verticalTabHeightDp: Float = 36f,
+    /**
+     * The tabs of a group with several dockables lie in its header row instead of a tab row above it; the header
+     * then is a single row in every group.
+     */
+    val tabsInHeaderRow: Boolean = false,
 )
 
 /**
@@ -49,7 +54,7 @@ internal data class GroupHeaderGeometry(
  */
 internal fun TabGroup.headerGeometry(groupRect: DockRect, metrics: GroupHeaderMetrics, verticalSide: DockSide? = null): GroupHeaderGeometry {
     if (verticalSide != null) return verticalHeaderGeometry(groupRect, metrics, verticalSide)
-    val hasTabRow = dockableIds.size > 1
+    val hasTabRow = dockableIds.size > 1 && !metrics.tabsInHeaderRow
     val tabRowHeight = if (hasTabRow) metrics.tabRowHeightDp else 0f
     val headerHeight = (metrics.headerTopInsetDp + tabRowHeight + metrics.headerRowHeightDp).coerceIn(0f, groupRect.height)
     val tabTop = groupRect.top + metrics.headerTopInsetDp

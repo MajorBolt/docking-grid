@@ -14,6 +14,12 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.HorizontalDivider
@@ -81,7 +87,9 @@ public fun DockGroupScope.MaterialDockTabStrip(modifier: Modifier = Modifier) {
 }
 
 /**
- * Title bar of the selected dockable with an options menu ([MaterialDockOptionsButton]). As the only center panel
+ * Title bar of the selected dockable with an options menu ([MaterialDockOptionsButton]); with
+ * [DockGroupScope.showsTabsInHeader] and several dockables it shows their tabs instead of the title
+ * ([MaterialDockHeaderTabs]), and the options act on the selected tab. As the only center panel
  * the header also shows the center arrangement as a button that opens the arrangements ([MaterialCenterLayoutButton]);
  * with more panels the center header ([MaterialCenterHeader]) has it.
  *
@@ -103,16 +111,20 @@ public fun DockGroupScope.MaterialDockHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = titleOf(group.selectedDockableId),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .overlayPart(isHeaderOverlay)
-                .padding(horizontal = if (isHeaderOverlay) 8.dp else 0.dp, vertical = 2.dp),
-        )
+        if (showsTabsInHeader && group.dockableIds.size > 1) {
+            MaterialDockHeaderTabs(modifier = Modifier.weight(1f))
+        } else {
+            Text(
+                text = titleOf(group.selectedDockableId),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .overlayPart(isHeaderOverlay)
+                    .padding(horizontal = if (isHeaderOverlay) 8.dp else 0.dp, vertical = 2.dp),
+            )
+        }
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.overlayPart(isHeaderOverlay)) {
             val currentCenterPreset = centerPreset
@@ -120,6 +132,51 @@ public fun DockGroupScope.MaterialDockHeader(
                 MaterialCenterLayoutButton(currentPreset = currentCenterPreset, onSelectPreset = { preset -> arrangeCenter(preset) })
             }
             MaterialDockOptionsButton(menuItems = menuItems)
+        }
+    }
+}
+
+/**
+ * Compact tabs for a header row: the titles side by side (scrolling when they do not fit), the selected one in the
+ * primary color and underlined. Each is marked with [DockGroupScope.dockTab], so it can be dragged and dropped onto.
+ */
+@Composable
+public fun DockGroupScope.MaterialDockHeaderTabs(modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    Row(
+        modifier = modifier.fillMaxHeight().horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        group.dockableIds.forEach { dockableId ->
+            val isSelected = dockableId == group.selectedDockableId
+            val textColor = if (isSelected) colorScheme.primary else colorScheme.onSurfaceVariant
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .dockTab(dockableId)
+                    .selectable(selected = isSelected, role = Role.Tab, onClick = { select(dockableId) })
+                    .drawBehind {
+                        if (isSelected) {
+                            val indicatorHeight = 2.dp.toPx()
+                            drawLine(
+                                color = colorScheme.primary,
+                                start = Offset(0f, size.height - indicatorHeight / 2f),
+                                end = Offset(size.width, size.height - indicatorHeight / 2f),
+                                strokeWidth = indicatorHeight,
+                            )
+                        }
+                    }
+                    .padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = titleOf(dockableId),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = textColor,
+                    maxLines = 1,
+                    modifier = Modifier.overlayPart(isHeaderOverlay).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
         }
     }
 }
