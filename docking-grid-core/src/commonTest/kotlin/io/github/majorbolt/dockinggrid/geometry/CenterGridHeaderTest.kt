@@ -90,6 +90,35 @@ class CenterGridHeaderTest {
     }
 
     @Test
+    fun theRightmostGroupOfARowHasItsVerticalHeaderOnTheRight() {
+        // BOTTOM row 0..1600 × 700..900 (with an 8 dp divider above it), groups ab (Scenes) and cd (GameControls).
+        val layout = DockLayout(
+            outerFrame = io.github.majorbolt.dockinggrid.DockFrame(
+                mapOf(
+                    io.github.majorbolt.dockinggrid.DockSide.BOTTOM to listOf(
+                        io.github.majorbolt.dockinggrid.DockLane(
+                            "bottom", 0.25f,
+                            listOf(
+                                TabGroup("ab", listOf(Scenes), sizeFraction = 0.5f),
+                                TabGroup("cd", listOf(GameControls), sizeFraction = 0.5f, headerStyle = GroupHeaderStyle(isVertical = true)),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            center = CenterGrid.single(TabGroup("center", listOf(Players))),
+        )
+        val geometry = geometryOf(layout)
+        val cdRect = geometry.groupRects.getValue("cd")
+
+        assertEquals(
+            DropTarget.Tab("cd", 0),
+            resolveDropTarget(layout, geometry, cdRect.right - 10f, cdRect.top + 10f, desktop, landscape),
+            "The strip lies at the right edge",
+        )
+    }
+
+    @Test
     fun aSingleCenterPanelHasNoGridHeader() {
         val single = DockLayout(center = CenterGrid.single(TabGroup("only", listOf(Scenes))))
         val geometry = geometryOf(single)

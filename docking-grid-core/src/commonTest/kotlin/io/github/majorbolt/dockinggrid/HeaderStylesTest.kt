@@ -142,6 +142,24 @@ class HeaderStylesTest {
         assertEquals(DockSide.RIGHT, defaultLayout.verticalHeaderSide(defaultLayout.findGroupOf(Players)!!.id), "RIGHT lane")
         assertEquals(DockSide.LEFT, defaultLayout.verticalHeaderSide(defaultLayout.findGroupOf(GameControls)!!.id), "Single center panel")
 
+        fun topRow(vararg groupIds: String) = DockLayout(
+            outerFrame = DockFrame(
+                mapOf(
+                    DockSide.TOP to listOf(
+                        DockLane("top", 0.2f, groupIds.mapIndexed { index, groupId -> TabGroup(groupId, listOf(listOf(Scenes, Players, AudioMixer)[index])) }),
+                    ),
+                ),
+            ),
+        )
+        val twoGroups = topRow("ab", "cd")
+        assertEquals(DockSide.LEFT, twoGroups.verticalHeaderSide("ab"))
+        assertEquals(DockSide.RIGHT, twoGroups.verticalHeaderSide("cd"), "Top ((AB) (CD)): the right group")
+        val threeGroups = topRow("a", "bc", "d")
+        assertEquals(DockSide.LEFT, threeGroups.verticalHeaderSide("a"))
+        assertEquals(DockSide.LEFT, threeGroups.verticalHeaderSide("bc"), "Top (A (BC) D): the middle group stays left")
+        assertEquals(DockSide.RIGHT, threeGroups.verticalHeaderSide("d"))
+        assertEquals(DockSide.LEFT, topRow("only").verticalHeaderSide("only"), "A single group in a row")
+
         val grid = grid2x2()
         assertEquals(DockSide.LEFT, grid.verticalHeaderSide("a-group"))
         assertEquals(DockSide.LEFT, grid.verticalHeaderSide("c-group"))

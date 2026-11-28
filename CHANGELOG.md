@@ -11,7 +11,8 @@ All notable changes to Docking Grid are documented here. The project follows [Se
     button and the options Lock dividers, Reset dividers and Auto-hide header. A single panel keeps the arrangement
     button in its own header.
   - `TabGroup.headerStyle: GroupHeaderStyle`: a vertical header (a strip on the group's outer side, see
-    `verticalHeaderSide`, with one icon tab per dockable: `DockHost(verticalHeader = ..., dockableIcon = ...)`,
+    `verticalHeaderSide`: the right side in RIGHT lanes, for the rightmost group of a TOP or BOTTOM row and in the
+    right column of the center grid, with one icon tab per dockable: `DockHost(verticalHeader = ..., dockableIcon = ...)`,
     `MaterialVerticalDockHeader`) and an auto-hidden header that slides in over the content on hover. Both are
     offered in the group's options menu (`MaterialDockOptionsButton`) and stored with the group
     (`DockLayoutOperation.SetGroupHeaderStyle`).

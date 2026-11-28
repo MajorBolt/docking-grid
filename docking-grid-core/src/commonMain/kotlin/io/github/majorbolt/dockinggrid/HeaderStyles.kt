@@ -16,13 +16,16 @@ public fun DockLayout.isHeaderAutoHideForcedByGrid(groupId: String, gridHidesPan
 
 /**
  * The side a vertical header of the group [groupId] is drawn on, its outer side: [DockSide.RIGHT] for groups in a
- * RIGHT lane and for center panels in the right column of the grid, [DockSide.LEFT] otherwise.
+ * RIGHT lane, for the rightmost of several groups in a TOP or BOTTOM lane, and for center panels in the right column
+ * of the grid; [DockSide.LEFT] otherwise.
  */
 public fun DockLayout.verticalHeaderSide(groupId: String): DockSide {
     DockFrameLevel.entries.forEach { frameLevel ->
         DockSide.entries.forEach { side ->
-            if (frame(frameLevel).lanes(side).any { lane -> lane.groups.any { group -> group.id == groupId } }) {
-                return if (side == DockSide.RIGHT) DockSide.RIGHT else DockSide.LEFT
+            val lane = frame(frameLevel).lanes(side).firstOrNull { lane -> lane.groups.any { group -> group.id == groupId } }
+            if (lane != null) {
+                val isRightmostInRow = !side.hasColumnLanes && lane.groups.size > 1 && lane.groups.last().id == groupId
+                return if (side == DockSide.RIGHT || isRightmostInRow) DockSide.RIGHT else DockSide.LEFT
             }
         }
     }
