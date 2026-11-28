@@ -54,6 +54,38 @@ class HeaderStylesTest {
     }
 
     @Test
+    fun aMovedDockKeepsItsHeaderStyleButATabMovedIntoAnotherDockTakesThatDocksStyle() {
+        // Default layout: LEFT lane with Scenes above StreamInfo (each its own group), GameControls in the center.
+        val defaultLayout = defaultWindowDockState(TestDockables.catalog, desktop).profile(landscape).layout
+        val layout = defaultLayout.applyOrFail(DockLayoutOperation.SetGroupHeaderStyle(defaultLayout.findGroupOf(Scenes)!!.id, vertical))
+
+        val movedToNewLane = layout.applyOrFail(DockLayoutOperation.MoveToNewLane(Scenes, DockFrameLevel.OUTER, DockSide.BOTTOM, 0))
+        assertEquals(vertical, movedToNewLane.findGroupOf(Scenes)?.headerStyle, "The dock moved as a whole")
+
+        val split = movedToNewLane.applyOrFail(DockLayoutOperation.MoveToGroup(StreamInfo, movedToNewLane.findGroupOf(Scenes)!!.id, 1))
+            .applyOrFail(DockLayoutOperation.MoveToNewLane(StreamInfo, DockFrameLevel.OUTER, DockSide.LEFT, 0))
+        assertEquals(vertical, split.findGroupOf(StreamInfo)?.headerStyle, "A new dock takes the style of the dock its tab came from")
+
+        val intoCenter = layout.applyOrFail(DockLayoutOperation.MoveToGroup(Scenes, layout.findGroupOf(GameControls)!!.id, 1))
+        assertEquals(GroupHeaderStyle(), intoCenter.findGroupOf(Scenes)?.headerStyle, "Into an existing dock: that dock's style")
+    }
+
+    @Test
+    fun aClosedDockReopensWithItsHeaderStyle() {
+        val state = defaultWindowDockState(TestDockables.catalog, desktop)
+        val scenesGroupId = state.profile(landscape).layout.findGroupOf(Scenes)!!.id
+        val styled = assertIs<DockStateTransitionResult.Applied>(
+            state.applyingOperation(DockLayoutOperation.SetGroupHeaderStyle(scenesGroupId, autoHiding), landscape, desktop),
+        ).state
+
+        val closed = styled.closingDockable(Scenes)
+        assertEquals(autoHiding, closed.profile(landscape).placementMemory[Scenes]?.headerStyle)
+        val reopened = closed.openingDockable(Scenes, TestDockables.catalog, desktop)
+
+        assertEquals(autoHiding, reopened.profile(landscape).layout.findGroupOf(Scenes)?.headerStyle)
+    }
+
+    @Test
     fun theGridKeepsItsAutoHideWhileItChanges() {
         val layout = grid2x2().applyOrFail(DockLayoutOperation.SetCenterHeaderAutoHide(true))
         assertTrue(layout.center.autoHidesHeader)

@@ -19,6 +19,9 @@ All notable changes to Docking Grid are documented here. The project follows [Se
     `DockingMetrics.centerHeaderHidesPanelHeaders` (default `true`) it also hides the headers of all panels
     (`isHeaderAutoHidden`, `isHeaderAutoHideForcedByGrid`).
   - While a dockable is dragged, auto-hidden group headers are shown, so tabs can still be dropped on them.
+  - A group created for a moved dockable takes the header style of the group it came from, and the style of a
+    closed group is remembered for reopening (`PlacementMemory.headerStyle`, stored as well); a dockable moved into
+    an existing group takes that group's style.
   - An auto-hidden group header lies over the content: its background is transparent and only its texts, icons and
     buttons are backed, semi-transparently (`DockGroupScope.isHeaderOverlay`). A revealed center grid header instead
     pushes the panels down (`calculateDockGeometry(centerHeaderRevealFraction)`). `KeepHeaderVisible` keeps a

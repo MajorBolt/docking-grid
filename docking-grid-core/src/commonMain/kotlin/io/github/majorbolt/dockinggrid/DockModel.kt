@@ -255,6 +255,8 @@ public data class PlacementMemory(
     val groupIndex: Int,
     val tabIndex: Int,
     val laneExtentFraction: Float?,
+    /** The header style of the group the dockable was in; a group created when it is reopened takes it. */
+    val headerStyle: GroupHeaderStyle? = null,
 )
 
 /** Layout and placement memory of one orientation. */

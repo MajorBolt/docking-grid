@@ -87,6 +87,8 @@ private fun PlacementMemory.toDto(): PlacementMemoryDto {
         groupIndex = groupIndex,
         tabIndex = tabIndex,
         laneExtentFraction = laneExtentFraction,
+        hasVerticalHeader = headerStyle?.isVertical,
+        autoHidesHeader = headerStyle?.autoHides,
     )
 }
 
@@ -184,5 +186,10 @@ private fun PlacementMemoryDto.toDomain(): PlacementMemory? {
         groupIndex = groupIndex,
         tabIndex = tabIndex,
         laneExtentFraction = laneExtentFraction,
+        headerStyle = if (hasVerticalHeader == null && autoHidesHeader == null) {
+            null
+        } else {
+            GroupHeaderStyle(isVertical = hasVerticalHeader == true, autoHides = autoHidesHeader == true)
+        },
     )
 }

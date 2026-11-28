@@ -88,4 +88,7 @@ internal data class PlacementMemoryDto(
     val groupIndex: Int = 0,
     val tabIndex: Int = 0,
     val laneExtentFraction: Float? = null,
+    /** The remembered header style; `null` (both) when none is remembered. */
+    val hasVerticalHeader: Boolean? = null,
+    val autoHidesHeader: Boolean? = null,
 )

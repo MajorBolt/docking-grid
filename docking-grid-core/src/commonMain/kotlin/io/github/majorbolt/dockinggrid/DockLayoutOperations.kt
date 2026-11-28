@@ -143,6 +143,10 @@ internal const val MAXIMUM_EXTENT_FRACTION = 0.95f
  *
  * @param newLaneExtentFraction extent for lanes created by this operation.
  * @param reservedIds identifiers that must not be reused for new containers (for example ids held by placement memory).
+ * @param rememberedHeaderStyle the header style of the group a dockable that is not placed was closed in.
+ *
+ * A group that the operation creates for the moved dockable takes the header style of the group the dockable came
+ * from, or the [rememberedHeaderStyle] of a dockable that is opened: a dock that moves or is reopened keeps its header.
  */
 internal fun DockLayout.applyOperation(
     operation: DockLayoutOperation,
@@ -150,6 +154,37 @@ internal fun DockLayout.applyOperation(
     capabilities: DockingCapabilities,
     newLaneExtentFraction: (DockableId, DockSide) -> Float = { _, side -> DockingDefaults.laneExtentFraction(side) },
     reservedIds: Set<String> = emptySet(),
+    rememberedHeaderStyle: (DockableId) -> GroupHeaderStyle? = { null },
+): DockOperationResult {
+    val result = applyStructuralOperation(operation, orientation, capabilities, newLaneExtentFraction, reservedIds)
+    val movedDockableId = operation.groupCreatingDockableId ?: return result
+    if (result !is DockOperationResult.Applied) return result
+    val headerStyle = findGroupOf(movedDockableId)?.headerStyle ?: rememberedHeaderStyle(movedDockableId) ?: return result
+    val newGroup = result.layout.findGroupOf(movedDockableId)
+        ?.takeIf { group -> findGroup(group.id) == null && group.dockableIds == listOf(movedDockableId) }
+        ?: return result
+    return DockOperationResult.Applied(
+        result.layout.mapGroups { group -> if (group.id == newGroup.id) group.copy(headerStyle = headerStyle) else group },
+    )
+}
+
+/** The moved dockable of an operation that may create a new group for it; `null` for all other operations. */
+private val DockLayoutOperation.groupCreatingDockableId: DockableId?
+    get() = when (this) {
+        is DockLayoutOperation.MoveToNewGroup -> dockableId
+        is DockLayoutOperation.MoveToNewLane -> dockableId
+        is DockLayoutOperation.MoveToCenter -> dockableId
+        is DockLayoutOperation.SplitCenterPanel -> dockableId
+        is DockLayoutOperation.MoveToCenterPanel -> dockableId
+        else -> null
+    }
+
+private fun DockLayout.applyStructuralOperation(
+    operation: DockLayoutOperation,
+    orientation: LayoutOrientation,
+    capabilities: DockingCapabilities,
+    newLaneExtentFraction: (DockableId, DockSide) -> Float,
+    reservedIds: Set<String>,
 ): DockOperationResult {
     val idGenerator = DockIdGenerator(allIds + reservedIds)
     return when (operation) {

@@ -186,6 +186,7 @@ public fun DockProfile.applyOperation(
     capabilities = capabilities,
     newLaneExtentFraction = ::rememberedOrDefaultExtentFraction,
     reservedIds = reservedIds,
+    rememberedHeaderStyle = { dockableId -> placementMemory[dockableId]?.headerStyle },
 )
 
 private val DockProfile.reservedIds: Set<String>
@@ -291,6 +292,7 @@ internal fun DockLayout.capturePlacement(dockableId: DockableId): PlacementMemor
                 groupIndex = 0,
                 tabIndex = tabIndex,
                 laneExtentFraction = null,
+                headerStyle = group.headerStyle,
             )
         }
     }
@@ -308,6 +310,7 @@ internal fun DockLayout.capturePlacement(dockableId: DockableId): PlacementMemor
                             groupIndex = groupIndex,
                             tabIndex = tabIndex,
                             laneExtentFraction = lane.extentFraction,
+                            headerStyle = group.headerStyle,
                         )
                     }
                 }

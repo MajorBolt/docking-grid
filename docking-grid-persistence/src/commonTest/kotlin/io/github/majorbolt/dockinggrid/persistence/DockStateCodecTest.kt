@@ -190,6 +190,11 @@ class DockStateCodecTest {
         val decoded = assertIs<DockStateDecodeResult.Decoded>(codec.decode(codec.encode(styled))).state
         assertEquals(styled, decoded)
 
+        // The style of a closed dock is remembered for reopening, also across storage.
+        val closed = styled.closingDockable(explorer)
+        val decodedClosed = assertIs<DockStateDecodeResult.Decoded>(codec.decode(codec.encode(closed))).state
+        assertEquals(GroupHeaderStyle(isVertical = true, autoHides = true), decodedClosed.profile(LayoutOrientation.LANDSCAPE).placementMemory[explorer]?.headerStyle)
+
         // A schema-4 document written before header styles existed reads with the defaults.
         val olderDocument = """
             { "schemaVersion": 4, "openDockableIds": ["editor"], "profiles": { "LANDSCAPE": { "layout": { "center": { "sections": [
